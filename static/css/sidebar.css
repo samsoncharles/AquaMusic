@@ -1,0 +1,214 @@
+/* Left Sidebar Styles */
+#sidebar {
+  background-color: var(--bg-surface);
+  border-right: 1px solid var(--border);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  z-index: 90;
+  transition: transform var(--transition-speed) ease, width var(--transition-speed) ease;
+}
+
+.sidebar-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Sidebar Sections */
+.sidebar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-section-title {
+  font-family: var(--font-display);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  padding: 6px 12px;
+}
+
+/* Navigation items */
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-sm);
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-speed) ease;
+}
+
+.sidebar-item i {
+  font-size: 1.1rem;
+  width: 20px;
+  text-align: center;
+  transition: color var(--transition-speed);
+}
+
+.sidebar-item:hover {
+  background-color: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+
+.sidebar-item:hover i {
+  color: var(--accent);
+}
+
+.sidebar-item.active {
+  background-color: var(--accent-dim);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.sidebar-item.active i {
+  color: var(--accent);
+}
+
+/* Expandable Smart Playlists header */
+.smart-playlists-header {
+  justify-content: space-between;
+}
+
+.smart-playlists-header .chevron-icon {
+  font-size: 0.8rem;
+  transition: transform var(--transition-speed);
+}
+
+.smart-playlists-header.expanded .chevron-icon {
+  transform: rotate(90deg);
+}
+
+.smart-playlists-sublist {
+  display: none;
+  flex-direction: column;
+  padding-left: 20px;
+  gap: 2px;
+}
+
+.smart-playlists-sublist.show {
+  display: flex;
+}
+
+/* Draggable Playlist Drop Zones */
+.playlist-item {
+  position: relative;
+}
+
+.playlist-item.drag-over {
+  background-color: var(--accent-dim) !important;
+  border: 1px dashed var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+/* Playlist creation footer */
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid var(--border);
+  background-color: var(--bg-surface);
+}
+
+.create-playlist-btn {
+  width: 100%;
+  background: var(--bg-surface-2);
+  border: 1px dashed var(--border-strong);
+  color: var(--text-secondary);
+  padding: 8px 12px;
+  border-radius: var(--border-radius);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all var(--transition-speed);
+}
+
+.create-playlist-btn:hover {
+  background: var(--bg-surface-3);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.playlist-input-container {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.playlist-input-container input {
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--border-radius-sm);
+  padding: 6px 10px;
+  color: var(--text-primary);
+  font-size: 0.85rem;
+}
+
+.playlist-input-container input:focus {
+  border-color: var(--accent);
+}
+
+.playlist-input-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.playlist-input-actions button {
+  flex: 1;
+  padding: 4px;
+  font-size: 0.75rem;
+  border-radius: var(--border-radius-sm);
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.playlist-input-save {
+  background-color: var(--accent);
+  color: white;
+}
+
+.playlist-input-cancel {
+  background-color: var(--bg-surface-3);
+  color: var(--text-secondary);
+}
+
+#btn-sidebar-close {
+  display: none;
+}
+
+/* Responsive transitions */
+@media (max-width: 1080px) {
+  #btn-sidebar-close {
+    display: flex;
+  }
+  
+  #sidebar {
+    position: fixed;
+    top: var(--topbar-height);
+    left: 0;
+    bottom: var(--player-height);
+    height: auto;
+    width: var(--sidebar-width);
+    transform: translateX(-100%);
+    box-shadow: 4px 0 16px rgba(0,0,0,0.5);
+    z-index: 500;
+  }
+  
+  #main-layout.sidebar-open #sidebar {
+    transform: translateX(0);
+  }
+}

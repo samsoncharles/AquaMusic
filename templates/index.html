@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark-violet">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>AquaMusic — Local Music Player</title>
+  <!-- Inline Brand Favicon (highly compatible SVG) -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,&lt;svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22 fill=%22%237C6AF7%22&gt;&lt;rect width=%22100%22 height=%22100%22 rx=%2220%22 fill=%22%2313131A%22/&gt;&lt;path d=%22M30 40 h 10 v 20 h -10 z M45 25 h 10 v 50 h -10 z M60 35 h 10 v 30 h -10 z%22 fill=%22%237C6AF7%22/&gt;&lt;/svg&gt;">
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- CSS Stylesheets -->
+  <link rel="stylesheet" href="/static/css/themes.css?v=19">
+  <link rel="stylesheet" href="/static/css/main.css?v=19">
+  <link rel="stylesheet" href="/static/css/sidebar.css?v=20">
+  <link rel="stylesheet" href="/static/css/player.css?v=28">
+  <link rel="stylesheet" href="/static/css/library.css?v=24">
+  <link rel="stylesheet" href="/static/css/eq.css?v=19">
+  <link rel="stylesheet" href="/static/css/lyrics.css?v=19">
+  <link rel="stylesheet" href="/static/css/modals.css?v=19">
+</head>
+<body>
+
+  <!-- Loading Overlay -->
+  <div id="loading-screen">
+    <div class="loader"></div>
+    <h3 style="font-family: var(--font-display);">Booting AquaMusic</h3>
+    <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 4px;">Loading library databases...</p>
+  </div>
+
+  <div id="app-container">
+    
+    <!-- Topbar (56px) -->
+    <header id="topbar">
+      <div class="topbar-left">
+        <button class="hamburger-btn" id="btn-hamburger" aria-label="Toggle Navigation Menu">
+          <i data-lucide="menu"></i>
+        </button>
+        <a href="#" class="app-logo">
+          <span>AquaMusic</span>
+        </a>
+      </div>
+      
+      <div class="topbar-center">
+        <div class="search-wrapper">
+          <i data-lucide="search"></i>
+          <input type="text" class="search-input" id="global-search" placeholder="Search track library... (Press '/' to focus)" aria-label="Search Library">
+        </div>
+      </div>
+      
+      <div class="topbar-right">
+        <button class="topbar-icon-btn" id="btn-theme-toggle" title="Cycle Theme" aria-label="Cycle Theme">
+          <i data-lucide="moon"></i>
+        </button>
+        <button class="topbar-icon-btn" id="btn-settings-toggle" title="App Settings" aria-label="Open Settings">
+          <i data-lucide="settings"></i>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Workspace Panels (Sidebar + Content + Now Playing) -->
+    <main id="main-layout">
+      
+      <!-- Left Sidebar (240px) -->
+      <aside id="sidebar">
+        <button class="modal-close-btn" id="btn-sidebar-close" style="position: absolute; top: 12px; right: 12px; z-index: 10;">
+          <i data-lucide="x"></i>
+        </button>
+        <div class="sidebar-scroll">
+          
+          <!-- Library Sections -->
+          <nav class="sidebar-section">
+            <span class="sidebar-section-title">Library</span>
+            <a class="sidebar-item active" data-view="songs">
+              <i data-lucide="music"></i>
+              <span>All Songs</span>
+            </a>
+            <a class="sidebar-item" data-view="albums">
+              <i data-lucide="disc"></i>
+              <span>Albums</span>
+            </a>
+            <a class="sidebar-item" data-view="artists">
+              <i data-lucide="users"></i>
+              <span>Artists</span>
+            </a>
+            <a class="sidebar-item" data-view="genres">
+              <i data-lucide="tags"></i>
+              <span>Genres</span>
+            </a>
+            <a class="sidebar-item" data-view="favorites">
+              <i data-lucide="heart"></i>
+              <span>Liked Music</span>
+            </a>
+            <a class="sidebar-item" data-view="queue">
+              <i data-lucide="list-music"></i>
+              <span>Active Queue</span>
+            </a>
+          </nav>
+
+          <!-- User Playlists Section -->
+          <div class="sidebar-section">
+            <span class="sidebar-section-title">User Playlists</span>
+            <div id="user-playlists-list">
+              <!-- Custom user playlists will load here -->
+            </div>
+          </div>
+
+        </div>
+
+      </aside>
+
+      <!-- Central Content Viewport -->
+      <section id="content-area">
+        <!-- Subviews (Songs, Albums, Artists, genres, etc.) will be rendered here dynamically -->
+      </section>
+
+      <!-- Right Panel: Now Playing Sidebar (360px) -->
+      <aside id="now-playing-panel">
+        <div class="ultrablur-container">
+          <div class="ultrablur-bg" id="nowplaying-blur-art"></div>
+        </div>
+        
+        <div class="nowplaying-drag-handle" id="drag-handle-nowplaying"></div>
+
+        <div class="nowplaying-content">
+          <div class="nowplaying-header">
+            <button class="control-btn" id="btn-close-nowplaying" title="Minimize Panel">
+              <i data-lucide="chevron-down"></i>
+            </button>
+            <h3>Now Playing</h3>
+            <button class="control-btn" id="btn-nowplaying-shortcuts" title="Keyboard Shortcuts Help">
+              <i data-lucide="help-circle"></i>
+            </button>
+          </div>
+
+          <!-- Cover Art Front -->
+          <div class="nowplaying-art-wrapper" id="nowplaying-art-frame">
+            <span class="nowplaying-orbit orbit-one" aria-hidden="true"></span>
+            <span class="nowplaying-orbit orbit-two" aria-hidden="true"></span>
+            <img class="nowplaying-art" id="nowplaying-image" src="/api/art/default" alt="Album Cover Art">
+            <canvas class="art-visualizer-canvas" id="art-visualizer-canvas" aria-label="Radial audio visualizer"></canvas>
+            <!-- Double-tap heart indicator -->
+            <div class="heart-tap-overlay" id="heart-anim-overlay">
+              <i data-lucide="heart"></i>
+            </div>
+          </div>
+
+          <!-- Song Meta Details -->
+          <div class="nowplaying-info">
+            <div class="nowplaying-live-label"><span></span> listening now</div>
+            <div class="nowplaying-title" id="nowplaying-track-title">Not Playing</div>
+            <div class="nowplaying-artist" id="nowplaying-track-artist">Select a song to start listening</div>
+          </div>
+
+          <!-- Like Button -->
+          <div style="display: flex; justify-content: center; margin: 4px 0;">
+            <button class="control-btn" id="btn-like-track" title="Like this track" style="transition: all 0.3s ease;">
+              <i data-lucide="heart"></i>
+            </button>
+          </div>
+
+
+          <!-- Waveform Seekbar -->
+          <div class="waveform-seekbar-container" id="waveform-seek-container" title="Click or drag to seek">
+            <canvas class="waveform-canvas" id="waveform-canvas-element" width="800" height="48"></canvas>
+            <div class="waveform-hover-line" id="waveform-hover-indicator"></div>
+            <div class="waveform-tooltip" id="waveform-time-tooltip">0:00</div>
+          </div>
+
+          <!-- Stats & Codec Badges -->
+          <div class="nowplaying-stats">
+            <span class="codec-badge" id="nowplaying-codec">---</span>
+            <span id="nowplaying-bitrate">-- kbps</span>
+            <span>•</span>
+            <span id="nowplaying-samplerate">-- kHz</span>
+          </div>
+
+          <!-- Sub-control Tools (Visualizer icon, Speed, Lyrics toggle, sleep timer) -->
+          <div style="display: flex; gap: 8px; width: 100%; margin-top: 10px; justify-content: center; align-items: center;">
+            <button class="control-btn" id="btn-visualizer-mode" title="Toggle Visualizer Mode">
+              <i data-lucide="eye"></i>
+            </button>
+            <button class="control-btn" id="btn-lyrics-toggle" title="Show Lyrics (L)">
+              <i data-lucide="align-left"></i>
+            </button>
+            <button class="control-btn" id="btn-sleep-timer" title="Sleep Timer">
+              <i data-lucide="timer"></i>
+            </button>
+            <select class="eq-preset-select" id="playback-speed-select" style="max-width: 80px;" title="Playback Speed">
+              <option value="0.5">0.5×</option>
+              <option value="0.75">0.75×</option>
+              <option value="1.0" selected>1.0×</option>
+              <option value="1.25">1.25×</option>
+              <option value="1.5">1.5×</option>
+              <option value="2.0">2.0×</option>
+            </select>
+          </div>
+
+          <!-- Up Next Widget -->
+          <div class="nowplaying-upnext-container" id="nowplaying-upnext-widget" style="opacity: 0; transform: translateY(10px); transition: all 0.5s cubic-bezier(0.16, 1, 0.3, 1); display: flex; flex-direction: column; align-items: center; width: 100%; margin-top: 24px; margin-bottom: 8px; cursor: pointer;">
+            <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; font-weight: 700;">Up Next</div>
+            <div class="upnext-card" style="display: flex; align-items: center; gap: 12px; background: rgba(255,255,255,0.03); padding: 8px 16px; border-radius: 30px; border: 1px solid rgba(255,255,255,0.04); width: 85%; max-width: 320px; justify-content: space-between; transition: background 0.2s ease;">
+              <div style="display: flex; align-items: center; gap: 12px; overflow: hidden;">
+                <img id="upnext-art-thumb" src="/api/art/default" style="width: 28px; height: 28px; border-radius: 50%; object-fit: cover; border: 1px solid rgba(255,255,255,0.1); flex-shrink: 0;">
+                <div style="display: flex; flex-direction: column; overflow: hidden; white-space: nowrap;">
+                  <span id="upnext-track-title" style="font-size: 0.85rem; color: var(--text-primary); text-overflow: ellipsis; overflow: hidden; font-weight: 600;">Title</span>
+                  <span id="upnext-track-artist" style="font-size: 0.75rem; color: var(--text-secondary); text-overflow: ellipsis; overflow: hidden;">Artist</span>
+                </div>
+              </div>
+
+              <!-- Analogue Countdown Clock -->
+              <div style="position: relative; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,0.2); border: 2px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; flex-shrink: 0; box-shadow: inset 0 0 4px rgba(0,0,0,0.5);">
+                
+                <!-- Inner progress circle -->
+                <svg width="28" height="28" style="position: absolute; top: -2px; left: -2px; transform: rotate(-90deg); overflow: visible;">
+                  <circle id="upnext-clock-ring" cx="14" cy="14" r="14" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="87.964" stroke-dashoffset="0" style="transition: stroke-dashoffset 0.5s linear; opacity: 0.9; stroke-linecap: round;"></circle>
+                </svg>
+
+                <!-- Clock Center Pin -->
+                <div style="width: 4px; height: 4px; background: var(--text-primary); border-radius: 50%; position: absolute; z-index: 3; box-shadow: 0 0 2px rgba(0,0,0,0.8);"></div>
+                
+                <!-- Minute Hand (Spins 360deg over the whole song) -->
+                <div id="upnext-hand-minute" style="position: absolute; width: 2px; height: 8px; background: var(--text-primary); bottom: 50%; left: calc(50% - 1px); transform-origin: bottom center; transform: rotate(0deg); transition: transform 0.5s linear; border-radius: 1px; z-index: 2;"></div>
+                
+                <!-- Second Hand (Spins 360deg every 60 seconds) -->
+                <div id="upnext-hand-second" style="position: absolute; width: 1px; height: 11px; background: var(--accent); bottom: 50%; left: calc(50% - 0.5px); transform-origin: bottom center; transform: rotate(0deg); transition: transform 0.5s linear; border-radius: 1px; z-index: 1;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Visualizer dock: bars and wave modes live here; radial mode moves onto the album art. -->
+          <div class="visualizer-dock" id="visualizer-dock">
+            <canvas id="mini-visualizer-canvas" style="width: 100%; height: 100%; display: block;"></canvas>
+          </div>
+
+        </div>
+
+        <!-- Lyrics Panel Overlay -->
+        <div id="lyrics-panel">
+          <div class="lyrics-header">
+            <h4 style="font-family: var(--font-display);">Lyrics</h4>
+            <button class="lyrics-close-btn" id="btn-lyrics-close" aria-label="Close Lyrics">
+              <i data-lucide="x"></i>
+            </button>
+          </div>
+          <div class="lyrics-content" id="lyrics-content-scroller">
+            <!-- LRC scrolling or raw text injected -->
+          </div>
+        </div>
+      </aside>
+
+    </main>
+
+    <!-- Collapsible 10-Band EQ Panel -->
+    <aside id="eq-panel">
+      <div class="eq-header">
+        <h3>10-Band Equalizer</h3>
+        <button class="eq-close-btn" id="btn-eq-close" aria-label="Close Equalizer">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+
+      <div class="eq-controls-row">
+        <select class="eq-preset-select" id="eq-presets-dropdown">
+          <option value="flat">Flat</option>
+          <option value="bass-boost">Bass Boost</option>
+          <option value="treble-boost">Treble Boost</option>
+          <option value="pop">Pop</option>
+          <option value="rock">Rock</option>
+          <option value="jazz">Jazz</option>
+          <option value="classical">Classical</option>
+          <option value="electronic">Electronic</option>
+          <option value="hip-hop">Hip-Hop</option>
+          <option value="custom">Custom</option>
+        </select>
+        <button class="btn-eq-reset" id="btn-eq-reset-flat">Flat</button>
+      </div>
+
+      <!-- 10 Frequency Sliders -->
+      <div class="eq-sliders-grid" id="eq-sliders-container">
+        <!-- Sliders injected by eq.js -->
+      </div>
+
+      <div class="eq-info-text">
+        Adjust frequencies between -12dB and +12dB. Settings are saved automatically.
+      </div>
+    </aside>
+
+    <!-- Bottom Mini Player Bar (always visible) -->
+    <footer id="mini-player">
+      
+      <!-- Track Meta Detail (left) -->
+      <div class="player-details" id="player-details-trigger">
+        <img class="player-art" id="mini-player-art" src="/api/art/default" alt="Mini Album Art">
+        <div class="player-text">
+          <span class="player-title" id="mini-player-title">Not Playing</span>
+          <span class="player-artist" id="mini-player-artist">Select a song</span>
+        </div>
+      </div>
+
+      <!-- Playback Controls & Timeline (center) -->
+      <div class="player-controls-container">
+        <canvas class="player-visualizer-canvas" id="player-visualizer-canvas" aria-label="Audio visualizer"></canvas>
+        <div class="player-buttons">
+          <button class="control-btn" id="btn-shuffle" title="Shuffle (S)">
+            <i data-lucide="shuffle"></i>
+          </button>
+          <button class="control-btn" id="btn-autopilot" title="Autopilot (Quality Journey)" style="display: none;">
+            <i data-lucide="toggle-left"></i>
+          </button>
+          <button class="control-btn" id="btn-prev" title="Previous Track (P)">
+            <i data-lucide="skip-back"></i>
+          </button>
+          <button class="control-btn btn-play-pause" id="btn-play-pause" title="Play / Pause (Space)">
+            <i data-lucide="play" id="play-pause-icon"></i>
+          </button>
+          <button class="control-btn" id="btn-next" title="Next Track (N)">
+            <i data-lucide="skip-forward"></i>
+          </button>
+          <button class="control-btn" id="btn-repeat" title="Repeat Modes (R)" style="position: relative;">
+            <i data-lucide="repeat"></i>
+            <span class="repeat-one-badge" id="repeat-one-indicator" style="display: none;">1</span>
+          </button>
+        </div>
+
+        <div class="player-progress-bar">
+          <span class="progress-time" id="time-current">0:00</span>
+          <div class="progress-slider-wrapper" id="timeline-slider-container">
+            <div class="progress-slider-bg"></div>
+            <div class="progress-slider-fill" id="timeline-slider-fill"></div>
+            <div class="progress-slider-handle" id="timeline-slider-handle"></div>
+          </div>
+          <span class="progress-time" id="time-duration">0:00</span>
+        </div>
+      </div>
+
+      <!-- Secondary Tools & Vol (right) -->
+      <div class="player-tools">
+        <button class="control-btn" id="btn-eq-toggle" title="Equalizer Settings" aria-label="Open Equalizer">
+          <i data-lucide="sliders-horizontal"></i>
+        </button>
+        <button class="control-btn" id="btn-toggle-panel" title="Expand Now Playing (F)">
+          <i data-lucide="maximize-2"></i>
+        </button>
+        <button class="control-btn" id="btn-player-crossfade-toggle" title="Toggle Crossfade Transitions">
+          <i data-lucide="git-compare"></i>
+        </button>
+        
+        <div class="volume-wrapper">
+          <button class="control-btn" id="btn-mute" title="Mute (M)">
+            <i data-lucide="volume-2" id="volume-icon"></i>
+          </button>
+          <div class="volume-slider-wrapper" id="volume-slider-container">
+            <div class="volume-slider-bg"></div>
+            <div class="volume-slider-fill" id="volume-slider-fill" style="width: 80%;"></div>
+            <div class="volume-slider-handle" id="volume-slider-handle" style="left: 80%;"></div>
+          </div>
+        </div>
+      </div>
+
+    </footer>
+
+  </div>
+
+  <!-- Custom Context Menu Container -->
+  <nav id="context-menu" aria-label="Context Menu">
+    <!-- Context items injected dynamically -->
+  </nav>
+
+  <!-- Toast stack container -->
+  <div id="toast-container"></div>
+
+  <!-- BACKDROP SYSTEM MODALS -->
+  <div class="modal-backdrop" id="modal-overlay">
+    
+    <!-- MODAL A: Keyboard Shortcuts Cheat Sheet -->
+    <div class="modal-container" id="modal-shortcuts" style="display: none;">
+      <div class="modal-header">
+        <h3>Keyboard Shortcuts Help</h3>
+        <button class="modal-close-btn" onclick="window.keyboard.closeShortcuts()"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <table class="shortcut-table">
+          <thead>
+            <tr>
+              <th>Key</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><kbd>Space</kbd></td><td>Play / Pause (soft fade transition)</td></tr>
+            <tr><td><kbd>←</kbd> / <kbd>→</kbd></td><td>Seek backwards / forwards 5 seconds</td></tr>
+            <tr><td><kbd>Shift</kbd> + <kbd>←</kbd> / <kbd>→</kbd></td><td>Seek backwards / forwards 30 seconds</td></tr>
+            <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Raise / Lower playback volume 5%</td></tr>
+            <tr><td><kbd>N</kbd></td><td>Skip to next queue track</td></tr>
+            <tr><td><kbd>P</kbd></td><td>Return to previous queue track</td></tr>
+            <tr><td><kbd>S</kbd></td><td>Toggle shuffling state</td></tr>
+            <tr><td><kbd>R</kbd></td><td>Cycle through repeat states (Off / All / One)</td></tr>
+            <tr><td><kbd>M</kbd></td><td>Toggle mute state</td></tr>
+            <tr><td><kbd>L</kbd></td><td>Show or hide Lyrics screen</td></tr>
+            <tr><td><kbd>E</kbd></td><td>Show or hide 10-Band Equalizer panel</td></tr>
+            <tr><td><kbd>F</kbd></td><td>Toggle fullscreen/expanded Now Playing panel</td></tr>
+            <tr><td><kbd>1</kbd> – <kbd>5</kbd></td><td>Rate currently playing track (1 to 5 Stars)</td></tr>
+            <tr><td><kbd>/</kbd></td><td>Focus search inputs</td></tr>
+            <tr><td><kbd>Escape</kbd></td><td>Close active popups / clear selections</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="window.keyboard.closeShortcuts()">Got it</button>
+      </div>
+    </div>
+
+    <!-- MODAL B: Tag Editor Form -->
+    <div class="modal-container" id="modal-tageditor" style="display: none; max-width: 680px;">
+      <div class="modal-header">
+        <h3>Edit Track Metadata Tags</h3>
+        <button class="modal-close-btn" onclick="window.tagger.closeEditor()"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="tag-editor-layout">
+          <div class="tag-editor-art-col">
+            <img class="tag-editor-preview-art" id="tag-edit-art-preview" src="/api/art/default" alt="Cover Art Preview">
+            <button class="tag-editor-art-btn" id="btn-tag-change-art">Change Artwork</button>
+            <button class="tag-editor-art-btn" id="btn-tag-remove-art" style="background-color: var(--bg-surface-3); color: var(--danger);">Remove Art</button>
+            <input type="file" id="tag-art-file-picker" accept="image/jpeg,image/png" style="display: none;">
+          </div>
+          
+          <form class="tag-editor-form" id="tag-editor-form" onsubmit="event.preventDefault();">
+            <div class="form-group form-group-full">
+              <label for="tag-input-title">Title</label>
+              <input type="text" id="tag-input-title" required>
+            </div>
+            <div class="form-group">
+              <label for="tag-input-artist">Artist</label>
+              <input type="text" id="tag-input-artist">
+            </div>
+            <div class="form-group">
+              <label for="tag-input-album">Album</label>
+              <input type="text" id="tag-input-album">
+            </div>
+            <div class="form-group">
+              <label for="tag-input-albumartist">Album Artist</label>
+              <input type="text" id="tag-input-albumartist">
+            </div>
+            <div class="form-group">
+              <label for="tag-input-genre">Genre</label>
+              <input type="text" id="tag-input-genre">
+            </div>
+            <div class="form-group">
+              <label for="tag-input-year">Year</label>
+              <input type="text" id="tag-input-year">
+            </div>
+            <div class="form-group">
+              <label for="tag-input-track">Track Number</label>
+              <input type="text" id="tag-input-track">
+            </div>
+            <div class="form-group">
+              <label for="tag-input-disc">Disc Number</label>
+              <input type="text" id="tag-input-disc">
+            </div>
+            <div class="form-group">
+              <label for="tag-input-bpm">BPM</label>
+              <input type="text" id="tag-input-bpm">
+            </div>
+            <div class="form-group form-group-full">
+              <label for="tag-input-composer">Composer</label>
+              <input type="text" id="tag-input-composer">
+            </div>
+            <div class="form-group form-group-full">
+              <label for="tag-input-comment">Comment</label>
+              <input type="text" id="tag-input-comment">
+            </div>
+          </form>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-eq-reset" onclick="window.tagger.closeEditor()" style="background-color: transparent;">Cancel</button>
+        <button class="btn-primary" id="btn-tag-editor-save">Save Changes</button>
+      </div>
+    </div>
+
+    <!-- MODAL C: Full Track Details Metadata Sheet -->
+    <div class="modal-container" id="modal-trackinfo" style="display: none;">
+      <div class="modal-header">
+        <h3>Full Track Specifications</h3>
+        <button class="modal-close-btn" onclick="window.contextMenu.closeTrackInfo()"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="track-info-grid" id="track-info-specs-grid">
+          <!-- Specification rows injected here -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" onclick="window.contextMenu.closeTrackInfo()">Close</button>
+      </div>
+    </div>
+
+  <div class="modal-container" id="modal-new-playlist" style="display: none;">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Create New Playlist</h3>
+        <button class="modal-close-btn" data-modal-close="modal-new-playlist">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Playlist Name</label>
+          <input type="text" id="input-new-playlist-name" placeholder="e.g. Summer Vibes">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="btn-create-playlist-confirm">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL D: Settings Panel -->
+    <div class="modal-container" id="modal-settings" style="display: none; max-width: 480px;">
+      <div class="modal-header">
+        <h3>AquaMusic Configuration</h3>
+        <button class="modal-close-btn" id="btn-settings-close">
+          <i data-lucide="x"></i>
+        </button>
+      </div>
+      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+
+        <!-- Playback Tweaks -->
+        <div class="settings-section">
+          <span class="settings-section-title">Playback Preferences</span>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">Crossfade Transitions</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-crossfade-enabled" checked style="opacity: 0; width: 0; height: 0;">
+                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
+              </label>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <label for="setting-crossfade-slider" style="font-size: 0.85rem; color: var(--text-secondary);">Crossfade Duration: <span id="setting-crossfade-val">5s</span></label>
+              <input type="range" id="setting-crossfade-slider" min="1" max="10" value="5" style="width: 120px; accent-color: var(--accent);">
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">Plexamp-style Sweet Fades</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-sweet-fades" checked style="opacity: 0; width: 0; height: 0;">
+                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
+              </label>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">Gapless Pre-buffering</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-gapless" checked style="opacity: 0; width: 0; height: 0;">
+                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
+              </label>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">ReplayGain Normalization</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-replaygain" checked style="opacity: 0; width: 0; height: 0;">
+                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
+              </label>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">Mono Audio Output</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-mono-output" style="opacity: 0; width: 0; height: 0;">
+                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- Appearance styling -->
+        <div class="settings-section">
+          <span class="settings-section-title">Visual Customization</span>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+              <span style="font-size: 0.85rem; color: var(--text-secondary);">Compact Table View (40px)</span>
+              <label class="switch">
+                <input type="checkbox" id="setting-compact-mode" style="opacity: 0; width: 0; height: 0;">
+                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- System options -->
+        <div class="settings-section">
+          <span class="settings-section-title">System Actions</span>
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
+            <button class="create-playlist-btn" id="btn-settings-clear" style="border-color: var(--danger); color: var(--danger); font-weight: bold;">
+              <i data-lucide="trash-2"></i>
+              <span>Reset & Clear All Local Data</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- MODAL E: Folder Selector for Local Music Import -->
+    <div class="modal-container" id="modal-folder-selector" style="display: none; max-width: 480px;">
+      <div class="modal-header" style="display:flex; justify-content:space-between; align-items:center;">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <h3 style="margin:0;">Select Music Folder</h3>
+          <button class="btn-filter-toggle" id="btn-auto-search-folders" style="padding:4px 8px; font-size:0.75rem;"><i data-lucide="search" style="width:12px;height:12px;"></i> Auto-Search Home</button>
+        </div>
+        <button class="modal-close-btn" onclick="window.playlists.closeFolderSelector()"><i data-lucide="x"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="folder-tree-path" id="selector-breadcrumbs">
+          <!-- Path breadcrumbs -->
+        </div>
+        <div class="folder-node-list" id="selector-nodes" style="max-height: 320px; overflow-y: auto;">
+          <!-- Folder nodes list -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-eq-reset" onclick="window.playlists.closeFolderSelector()" style="background-color: transparent;">Cancel</button>
+        <button class="btn-primary" id="btn-confirm-folder-select">Select Folder</button>
+      </div>
+    </div>
+
+    <!-- MODAL D: Global Dialog System (Replacing alert/confirm/prompt) -->
+    <div class="modal-container" id="modal-dialog" style="display: none; max-width: 400px; box-shadow: 0 10px 40px rgba(0,0,0,0.8); border: 1px solid var(--border-strong);">
+      <div class="modal-header" style="border-bottom: none; padding-bottom: 0;">
+        <h3 id="dialog-title" style="font-size: 1.25rem;">Confirm Action</h3>
+      </div>
+      <div class="modal-body" style="padding: 16px 20px;">
+        <p id="dialog-message" style="margin-bottom: 16px; color: var(--text-secondary); line-height: 1.5; font-size: 0.95rem;"></p>
+        <div id="dialog-input-container" style="display: none;">
+          <input type="text" id="dialog-input" style="width: 100%;" placeholder="Enter value...">
+        </div>
+      </div>
+      <div class="modal-footer" style="border-top: none; padding-top: 0;">
+        <button class="btn-eq-reset" id="dialog-btn-cancel" style="background-color: transparent;">Cancel</button>
+        <button class="btn-primary" id="dialog-btn-confirm">Confirm</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Switch slider styles for configuration box toggles -->
+  <style>
+    .switch input:checked + .slider-round {
+      background-color: var(--accent);
+    }
+    .switch .slider-round:before {
+      position: absolute;
+      content: "";
+      height: 14px;
+      width: 14px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: 0.3s;
+    }
+    .switch input:checked + .slider-round:before {
+      transform: translateX(20px);
+    }
+  </style>
+
+  <!-- Core JavaScript modules loaded sequentially -->
+  <script src="/static/js/api.js?v=19"></script>
+  <script src="/static/js/toast.js?v=19"></script>
+  <script src="/static/js/themes.js?v=19"></script>
+  <script src="/static/js/ratings.js?v=19"></script>
+  <script src="/static/js/tagger.js?v=19"></script>
+  <script src="/static/js/lyrics.js?v=19"></script>
+  <script src="/static/js/sleep-timer.js?v=19"></script>
+  <script src="/static/js/eq.js?v=19"></script>
+  <script src="/static/js/playlists.js?v=28"></script>
+  <script src="/static/js/waveform.js?v=19"></script>
+  <script src="/static/js/visualizer.js?v=24"></script>
+  <script src="/static/js/player.js?v=30"></script>
+  <script src="/static/js/library.js?v=25"></script>
+  <script src="/static/js/views.js?v=25"></script>
+  <script src="/static/js/settings.js?v=22"></script>
+  <script src="/static/js/keyboard.js?v=19"></script>
+  <script src="/static/js/dialog.js?v=19"></script>
+  <script src="/static/js/context-menu.js?v=21"></script>
+  <script src="/static/js/main.js?v=27"></script>
+
+</body>
+</html>

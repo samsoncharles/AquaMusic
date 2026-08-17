@@ -1,0 +1,132 @@
+/* WaveVault Themes definitions using CSS Custom Properties */
+
+:root {
+  /* Default Theme: Dark Violet */
+  --bg-base:        #0A0A0F;   /* deepest background */
+  --bg-surface:     #13131A;   /* panels, cards */
+  --bg-surface-2:   #1C1C27;   /* elevated cards, hover */
+  --bg-surface-3:   #252535;   /* pressed states, active items */
+  --bg-overlay:     rgba(10, 10, 15, 0.85); /* modal backdrops */
+  --bg-player:      rgba(19, 19, 26, 0.82);
+
+  /* Accent — electric violet (dynamic: overridden per-track by art color extraction) */
+  --accent:         #7C6AF7;
+  --accent-dim:     rgba(124, 106, 247, 0.18);
+  --accent-glow:    rgba(124, 106, 247, 0.35);
+  --accent-text:    #C4B8FF;
+
+  /* Text */
+  --text-primary:   #EEEEF5;
+  --text-secondary: #8888A8;
+  --text-muted:     #55556A;
+
+  /* Semantic */
+  --danger:         #F76A6A;
+  --success:        #6AF79E;
+  --warning:        #F7C46A;
+
+  /* Borders */
+  --border:         rgba(255, 255, 255, 0.07);
+  --border-strong:  rgba(255, 255, 255, 0.14);
+
+  /* Player & Layout Layout bounds */
+  --player-height:    80px;
+  --sidebar-width:    240px;
+  --nowplaying-width: 360px;
+  --topbar-height:    56px;
+  
+  --transition-speed: 0.25s;
+  --border-radius:    12px;
+  --border-radius-lg: 16px;
+  --border-radius-sm: 6px;
+  --font-display:     'Space Grotesk', sans-serif;
+  --font-ui:          'Inter', sans-serif;
+}
+
+/* Midnight Blue Theme */
+[data-theme="midnight-blue"] {
+  --bg-base:        #080B10;
+  --bg-surface:     #0F1520;
+  --bg-surface-2:   #172030;
+  --bg-surface-3:   #1F2B40;
+  --bg-overlay:     rgba(8, 11, 16, 0.85);
+  --bg-player:      rgba(15, 21, 32, 0.82);
+  
+  --accent:         #00D2FF;
+  --accent-dim:     rgba(0, 210, 255, 0.15);
+  --accent-glow:    rgba(0, 210, 255, 0.35);
+  --accent-text:    #B3F4FF;
+  
+  --text-primary:   #EAEFF8;
+  --text-secondary: #7F8EAF;
+  --text-muted:     #4C5977;
+  
+  --border:         rgba(255, 255, 255, 0.05);
+  --border-strong:  rgba(255, 255, 255, 0.12);
+}
+
+/* Carbon (Monochrome/Minimal) Theme */
+[data-theme="carbon"] {
+  --bg-base:        #000000;
+  --bg-surface:     #0C0C0C;
+  --bg-surface-2:   #181818;
+  --bg-surface-3:   #242424;
+  --bg-overlay:     rgba(0, 0, 0, 0.9);
+  --bg-player:      rgba(12, 12, 12, 0.85);
+  
+  --accent:         #FFFFFF;
+  --accent-dim:     rgba(255, 255, 255, 0.15);
+  --accent-glow:    rgba(255, 255, 255, 0.35);
+  --accent-text:    #CCCCCC;
+  
+  --text-primary:   #F2F2F2;
+  --text-secondary: #999999;
+  --text-muted:     #4D4D4D;
+  
+  --border:         rgba(255, 255, 255, 0.08);
+  --border-strong:  rgba(255, 255, 255, 0.16);
+}
+
+/* Nord Theme */
+[data-theme="nord"] {
+  --bg-base:        #2E3440;
+  --bg-surface:     #3B4252;
+  --bg-surface-2:   #434C5E;
+  --bg-surface-3:   #4C566A;
+  --bg-overlay:     rgba(46, 52, 64, 0.88);
+  --bg-player:      rgba(59, 66, 82, 0.85);
+  
+  --accent:         #88C0D0;
+  --accent-dim:     rgba(136, 192, 208, 0.18);
+  --accent-glow:    rgba(136, 192, 208, 0.35);
+  --accent-text:    #E5E9F0;
+  
+  --text-primary:   #ECEFF4;
+  --text-secondary: #D8DEE9;
+  --text-muted:     #6C7B99;
+  
+  --border:         rgba(255, 255, 255, 0.06);
+  --border-strong:  rgba(255, 255, 255, 0.12);
+}
+
+/* Pure Light Theme */
+[data-theme="light-pure"] {
+  --bg-base:        #F6F6F9;
+  --bg-surface:     #FFFFFF;
+  --bg-surface-2:   #EEEEF2;
+  --bg-surface-3:   #E4E4EB;
+  --bg-overlay:     rgba(240, 240, 245, 0.85);
+  --bg-player:      rgba(255, 255, 255, 0.85);
+  
+  --accent:         #7C6AF7;
+  --accent-dim:     rgba(124, 106, 247, 0.12);
+  --accent-glow:    rgba(124, 106, 247, 0.2);
+  --accent-text:    #5A48D9;
+  
+  --text-primary:   #1C1C28;
+  --text-secondary: #5D5D70;
+  --text-muted:     #8C8C9E;
+  
+  --border:         rgba(0, 0, 0, 0.06);
+  --border-strong:  rgba(0, 0, 0, 0.12);
+}

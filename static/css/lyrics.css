@@ -1,0 +1,114 @@
+/* Lyrics Container Panel Styles */
+#lyrics-panel {
+  position: absolute;
+  inset: 0;
+  background-color: var(--bg-overlay);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+#lyrics-panel.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.lyrics-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.lyrics-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-speed);
+}
+
+.lyrics-close-btn:hover {
+  background: var(--bg-surface-2);
+  color: var(--text-primary);
+}
+
+/* Scrollable lines area */
+.lyrics-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 40px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+  text-align: center;
+  scroll-behavior: smooth;
+  mask-image: linear-gradient(to bottom, transparent 0%, white 15%, white 85%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, white 15%, white 85%, transparent 100%);
+}
+
+/* Single line styles */
+.lyric-line {
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 8px 12px;
+  border-radius: var(--border-radius-sm);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  max-width: 90%;
+  line-height: 1.5;
+}
+
+.lyric-line:hover {
+  color: var(--text-secondary);
+  background-color: rgba(255,255,255,0.03);
+}
+
+/* Synchronized Active line style */
+.lyric-line.active {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+  transform: scale(1.05);
+}
+
+/* Non-synced raw text block fallback */
+.lyric-plain-text {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  line-height: 1.8;
+  white-space: pre-wrap;
+  text-align: center;
+  padding-bottom: 40px;
+}
+
+/* Empty Lyrics layout */
+.lyric-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 80%;
+  color: var(--text-muted);
+  gap: 12px;
+}
+
+.lyric-empty i {
+  font-size: 2.5rem;
+}

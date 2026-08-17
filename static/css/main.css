@@ -1,0 +1,427 @@
+/* Reset and Base Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: var(--font-ui);
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+  user-select: none;
+  transition: background-color var(--transition-speed) ease;
+}
+
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+/* Custom Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Base App Shell Layout */
+#app-container {
+  display: grid;
+  grid-template-rows: var(--topbar-height) 1fr;
+  height: 100vh;
+  width: 100vw;
+  position: relative;
+}
+
+/* Topbar Styles */
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  background-color: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  height: var(--topbar-height);
+  z-index: 100;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.hamburger-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  transition: background var(--transition-speed);
+}
+
+.hamburger-btn:hover {
+  background: var(--bg-surface-2);
+}
+
+.app-logo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.app-logo i {
+  color: var(--accent);
+  filter: drop-shadow(0 0 8px var(--accent-glow));
+}
+
+.topbar-center {
+  flex: 1;
+  max-width: 480px;
+  position: relative;
+  margin: 0 20px;
+}
+
+.search-wrapper {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.search-wrapper i {
+  position: absolute;
+  left: 14px;
+  color: var(--text-secondary);
+  pointer-events: none;
+  width: 18px;
+  height: 18px;
+  display: flex;
+}
+
+.search-input {
+  width: 100%;
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 8px 16px 8px 42px;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  transition: all var(--transition-speed) ease;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  background-color: var(--bg-surface-3);
+  box-shadow: 0 0 10px var(--accent-dim);
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.topbar-icon-btn {
+  background: none;
+  border: none;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  transition: all var(--transition-speed);
+}
+
+.topbar-icon-btn:hover {
+  background-color: var(--bg-surface-2);
+  color: var(--accent);
+}
+
+/* Dropdown Menu Styles */
+.theme-dropdown-wrapper {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 10px;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--border-radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  min-width: 200px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 0;
+}
+
+.dropdown-item {
+  background: none;
+  border: none;
+  padding: 10px 16px;
+  text-align: left;
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.9rem;
+  transition: background var(--transition-speed);
+}
+
+.dropdown-item i {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+}
+
+.dropdown-item:hover, .dropdown-item.active {
+  background-color: var(--bg-surface-2);
+}
+
+.dropdown-divider {
+  height: 1px;
+  background-color: var(--border);
+  margin: 8px 0;
+}
+
+/* Core Workspace Panels Layout */
+#main-layout {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) 1fr var(--nowplaying-width);
+  height: calc(100vh - var(--topbar-height) - var(--player-height));
+  width: 100vw;
+  overflow: hidden;
+  position: relative;
+  transition: grid-template-columns var(--transition-speed) ease;
+}
+
+/* Hide Now Playing Column if toggled off */
+#main-layout.no-nowplaying {
+  grid-template-columns: var(--sidebar-width) 1fr 0px;
+}
+
+/* Sidebar Collapse on Desktop */
+@media (min-width: 769px) {
+  #main-layout.sidebar-collapsed {
+    grid-template-columns: 0px 1fr var(--nowplaying-width) !important;
+  }
+
+  #main-layout.sidebar-collapsed.no-nowplaying {
+    grid-template-columns: 0px 1fr 0px !important;
+  }
+}
+
+#sidebar {
+  overflow: hidden;
+  transition: width var(--transition-speed) ease;
+}
+
+/* Main Content Area scroll pane */
+#content-area {
+  background-color: var(--bg-base);
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  position: relative;
+}
+
+/* General Layout helpers & Empty States */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+  height: 70%;
+}
+
+.empty-state svg {
+  width: 120px;
+  height: 120px;
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+
+.empty-state h3 {
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.empty-state p {
+  font-size: 0.9rem;
+  max-width: 320px;
+  line-height: 1.4;
+  margin-bottom: 20px;
+}
+
+.btn-primary {
+  background-color: var(--accent);
+  color: #FFFFFF;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all var(--transition-speed);
+  box-shadow: 0 4px 12px var(--accent-glow);
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px var(--accent-glow);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background-color: var(--bg-surface-2);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 10px 20px;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all var(--transition-speed);
+}
+
+.btn-secondary:hover {
+  background-color: var(--bg-surface-3);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* App Loading Spinner Screen */
+#loading-screen {
+  position: fixed;
+  inset: 0;
+  background-color: var(--bg-base);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.loader {
+  width: 48px;
+  height: 48px;
+  border: 4px solid var(--border-strong);
+  border-bottom-color: var(--accent);
+  border-radius: 50%;
+  display: inline-block;
+  animation: rotation 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+@keyframes rotation {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Responsiveness (Tablet Viewports < 1080px) */
+@media (max-width: 1080px) {
+  #main-layout {
+    grid-template-columns: var(--sidebar-width) 1fr 0px;
+  }
+  #main-layout.no-nowplaying {
+    grid-template-columns: var(--sidebar-width) 1fr 0px;
+  }
+  #main-layout:not(.no-nowplaying) {
+    /* If Now Playing is visible, collapse sidebar on tablet to fit */
+    grid-template-columns: 0px 1fr var(--nowplaying-width);
+  }
+  
+  /* Slide drawer for sidebar when toggled */
+  #main-layout.sidebar-open {
+    grid-template-columns: var(--sidebar-width) 1fr 0px !important;
+  }
+  #sidebar {
+    transition: transform var(--transition-speed) ease, width var(--transition-speed) ease;
+  }
+}
+
+/* Responsiveness (Tablet & Mobile Viewports <= 1080px) */
+@media (max-width: 1080px) {
+  #app-container {
+    grid-template-rows: var(--topbar-height) 1fr;
+  }
+
+  #topbar {
+    padding: 0 12px;
+  }
+
+  .hamburger-btn {
+    display: flex;
+  }
+
+  .topbar-center {
+    margin: 0 8px;
+  }
+
+  #main-layout {
+    display: block;
+    width: 100%;
+    height: calc(100vh - var(--topbar-height) - var(--player-height));
+  }
+
+  /* Slide drawer for sidebar */
+  #main-layout.sidebar-open {
+    display: block;
+  }
+
+  /* Bottom Mini player bar overrides */
+  #mini-player {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+  }
+}

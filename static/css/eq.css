@@ -1,0 +1,161 @@
+/* Equalizer Drawer Panel Styles */
+#eq-panel {
+  position: fixed;
+  right: 20px;
+  bottom: -450px; /* Hidden off-screen initially */
+  width: 340px;
+  height: auto;
+  border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+  background-color: var(--bg-surface);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--border-strong);
+  border-bottom: none;
+  box-shadow: 0 -8px 32px rgba(0,0,0,0.5);
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  transition: bottom 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#eq-panel.show {
+  bottom: var(--player-height);
+}
+
+.eq-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.eq-header h3 {
+  font-size: 1.1rem;
+}
+
+.eq-close-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.eq-close-btn:hover {
+  color: var(--text-primary);
+}
+
+/* EQ Enabled and Presets controls */
+.eq-controls-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.eq-preset-select {
+  flex: 1;
+  background-color: var(--bg-surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  border-radius: var(--border-radius-sm);
+  padding: 6px 12px;
+  font-size: 0.85rem;
+}
+
+.eq-preset-select:focus {
+  border-color: var(--accent);
+}
+
+.btn-eq-reset {
+  background-color: var(--bg-surface-3);
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px 12px;
+  border-radius: var(--border-radius-sm);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-speed);
+}
+
+.btn-eq-reset:hover {
+  background-color: var(--accent);
+  color: white;
+}
+
+/* Vertical Sliders Grid */
+.eq-sliders-grid {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 240px;
+  margin-bottom: 20px;
+  padding: 0 10px;
+}
+
+.eq-slider-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  height: 100%;
+}
+
+.eq-slider-col span.eq-value {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  min-height: 14px;
+}
+
+.eq-slider-col input[type="range"] {
+  writing-mode: vertical-lr;
+  direction: rtl; /* Makes top = +12, bottom = -12 */
+  width: 8px;
+  height: 160px;
+  background-color: var(--bg-surface-3);
+  border-radius: 4px;
+  appearance: none;
+  cursor: pointer;
+  margin: 8px 0;
+}
+
+/* Custom range styles for vertical slider */
+.eq-slider-col input[type="range"]::-webkit-slider-runnable-track {
+  background: var(--bg-surface-3);
+  border-radius: 4px;
+  width: 8px;
+}
+
+.eq-slider-col input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background-color: var(--accent);
+  border: 2px solid var(--text-primary);
+  margin-left: -3px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  transition: transform 0.1s;
+}
+
+.eq-slider-col input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+
+.eq-slider-label {
+  font-size: 0.65rem;
+  color: var(--text-secondary);
+  font-weight: 700;
+  text-align: center;
+  width: 100%;
+}
+
+.eq-info-text {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+  text-align: center;
+}
