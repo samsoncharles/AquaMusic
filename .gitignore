@@ -9,9 +9,18 @@ __pycache__/
 .env.*
 *.pem
 *.key
+certs/
 id_*
 
 # Editor and operating-system files
 .DS_Store
 .vscode/
 .idea/
+
+# PyInstaller build artifacts and executables
+build/
+dist/
+packaging/build/
+packaging/dist/
+*.deb
+

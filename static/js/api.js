@@ -36,6 +36,39 @@ window.api = {
     return this.request('/api/library/stats');
   },
 
+  /** Removes tracks from the app library without deleting their audio files. */
+  removeLibraryTracks(trackIds) {
+    return this.request('/api/library/tracks', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ track_ids: trackIds })
+    });
+  },
+
+  getState(key) {
+    return this.request(`/api/state/${encodeURIComponent(key)}`);
+  },
+
+  saveState(key, value) {
+    return this.request(`/api/state/${encodeURIComponent(key)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(value)
+    });
+  },
+
+  getSharing() {
+    return this.request('/api/sharing');
+  },
+
+  saveSharing(settings) {
+    return this.request('/api/sharing', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(settings)
+    });
+  },
+
   /**
    * Initiates a directory scan.
    */

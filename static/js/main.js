@@ -12,13 +12,18 @@ class MainApp {
   }
 
   async boot() {
+    const bootStartedAt = performance.now();
+    // Restore settings/theme/playback preferences before any manager reads
+    // localStorage. The source of truth is the per-user SQLite database.
+    await window.persistence.init();
     // 1. Determine local OS path separator
     this.detectOS();
 
     // 2. Initialize all helper sub-managers
     window.themes.init();
+    await window.ratings.init();
     window.settings.init();
-    window.playlists.init();
+    await window.playlists.init();
     window.waveformSeekbar.init();
     window.lyrics.init();
     window.eq.init();
@@ -39,6 +44,15 @@ class MainApp {
     // 6. Render Smart Playlists submenu lists
 
     // 7. Hide boot loading screen with a fade
+    // Desktop WebEngine can initialise much faster than a normal browser.
+    // Keep the same visible loading animation long enough to avoid a blank
+    // window flash and make startup feel consistent with the web version.
+    const minimumLoaderTime = 700;
+    const remainingLoaderTime = minimumLoaderTime - (performance.now() - bootStartedAt);
+    if (remainingLoaderTime > 0) {
+      await new Promise(resolve => setTimeout(resolve, remainingLoaderTime));
+    }
+
     const loader = document.getElementById('loading-screen');
     if (loader) {
       loader.style.transition = 'opacity 0.4s ease';
@@ -547,6 +561,8 @@ class MainApp {
     const savedVol = localStorage.getItem('wavevault_volume');
     if (window.player) {
       window.player.setVolume(savedVol !== null ? parseFloat(savedVol) : 1.0);
+      window.player.isMuted = localStorage.getItem('wavevault_muted') === 'true';
+      window.player.setVolume(window.player.volume);
     }
 
     // 2. Restore playback speed
@@ -561,6 +577,15 @@ class MainApp {
       const track = window.library.tracks[lastTrackId];
       window.player.currentTrack = track;
       window.player.activeAudio.src = `/api/stream/${track.id}`;
+      const savedPosition = Math.max(0, Number(localStorage.getItem('wavevault_last_position') || 0));
+      window.player.activeAudio.addEventListener('loadedmetadata', () => {
+        // Restore the exact previous point, but keep playback paused until the
+        // user presses Play; desktop apps should never start audio by surprise.
+        if (savedPosition < window.player.activeAudio.duration - 1) {
+          window.player.activeAudio.currentTime = savedPosition;
+          window.player.onTimeUpdate();
+        }
+      }, { once: true });
       window.player.updateNowPlayingInfo(track.id);
     } else {
       // Default empty state Now Playing

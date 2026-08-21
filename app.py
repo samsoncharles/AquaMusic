@@ -4,8 +4,14 @@ import json
 import time
 import threading
 import colorsys
+import ssl
+import shutil
+import subprocess
+import socket
+import sqlite3
+from pathlib import Path
 from flask import Flask, render_template, request, Response, jsonify, send_file
-from werkzeug.utils import secure_filename
+from werkzeug.serving import make_server
 from mutagen import File
 from mutagen.flac import FLAC
 from mutagen.oggvorbis import OggVorbis
@@ -19,17 +25,157 @@ import waveform
 
 app = Flask(__name__)
 
+# Per-user storage keeps the installed application read-only and preserves a
+# person's library/history when AquaMusic is upgraded or reinstalled.
+APP_DATA_DIR = Path(os.environ.get('AQUAMUSIC_DATA_DIR', Path.home() / '.local' / 'share' / 'AquaMusic'))
+APP_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 # Track library data storage
 LIBRARY = {}
-LIBRARY_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'library.json')
+LIBRARY_FILE = str(APP_DATA_DIR / 'library.json')
+DATABASE_FILE = APP_DATA_DIR / 'aquamusic.db'
+SHARE_FILE = APP_DATA_DIR / 'sharing.json'
+SHARE_SERVER = None
+SHARE_THREAD = None
+SHARE_LOCK = threading.Lock()
+
+def database_connection():
+    # Opening a connection is on the request path. Do not reconfigure the
+    # database here: journal_mode takes a filesystem lock and made startup
+    # and preference saves noticeably sluggish on large libraries.
+    return sqlite3.connect(DATABASE_FILE, timeout=10)
+
+def initialise_database():
+    """Create durable application tables and migrate the old JSON cache once."""
+    with database_connection() as connection:
+        connection.execute('PRAGMA journal_mode=WAL')
+        connection.execute('PRAGMA foreign_keys=ON')
+        connection.execute('''
+            CREATE TABLE IF NOT EXISTS tracks (
+                id TEXT PRIMARY KEY,
+                payload TEXT NOT NULL
+            )
+        ''')
+        connection.execute('''
+            CREATE TABLE IF NOT EXISTS app_state (
+                key TEXT PRIMARY KEY,
+                payload TEXT NOT NULL
+            )
+        ''')
+        has_tracks = connection.execute('SELECT 1 FROM tracks LIMIT 1').fetchone()
+        if not has_tracks and os.path.exists(LIBRARY_FILE):
+            try:
+                legacy_tracks = json.loads(Path(LIBRARY_FILE).read_text(encoding='utf-8'))
+                connection.executemany(
+                    'INSERT OR REPLACE INTO tracks (id, payload) VALUES (?, ?)',
+                    [(track_id, json.dumps(track, ensure_ascii=False))
+                     for track_id, track in legacy_tracks.items() if isinstance(track, dict)]
+                )
+                print(f'[Library] Migrated {len(legacy_tracks)} tracks to SQLite.')
+            except (OSError, json.JSONDecodeError) as error:
+                print(f'[Library] JSON migration skipped: {error}')
+
+def load_state(key, default):
+    with database_connection() as connection:
+        row = connection.execute('SELECT payload FROM app_state WHERE key = ?', (key,)).fetchone()
+    if not row:
+        return default
+    try:
+        return json.loads(row[0])
+    except json.JSONDecodeError:
+        return default
+
+def save_state(key, value):
+    payload = json.dumps(value, ensure_ascii=False)
+    with database_connection() as connection:
+        connection.execute(
+            'INSERT INTO app_state (key, payload) VALUES (?, ?) '
+            'ON CONFLICT(key) DO UPDATE SET payload = excluded.payload',
+            (key, payload)
+        )
+
+def load_share_config():
+    defaults = {'enabled': False, 'port': 5000}
+    try:
+        if SHARE_FILE.exists():
+            defaults.update(json.loads(SHARE_FILE.read_text(encoding='utf-8')))
+    except (OSError, json.JSONDecodeError):
+        pass
+    return defaults
+
+def save_share_config(config):
+    SHARE_FILE.write_text(json.dumps(config, indent=2), encoding='utf-8')
+
+def lan_addresses():
+    addresses = []
+    # This does not send traffic; it asks the OS which local address it would
+    # use for a LAN route.  It works even when the hostname is not in DNS.
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.connect(('192.0.2.1', 80))
+            address = probe.getsockname()[0]
+            if not address.startswith('127.'):
+                addresses.append(address)
+    except OSError:
+        pass
+    try:
+        for item in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            address = item[4][0]
+            if not address.startswith('127.') and address not in addresses:
+                addresses.append(address)
+    except OSError:
+        pass
+    return addresses
+
+def ensure_share_certificate(cert_path, key_path):
+    """Create a local self-signed certificate only when the user did not supply one."""
+    cert, key = Path(cert_path), Path(key_path)
+    if cert.is_file() and key.is_file():
+        return str(cert), str(key)
+    cert.parent.mkdir(parents=True, exist_ok=True)
+    openssl = shutil.which('openssl')
+    if not openssl:
+        raise RuntimeError('No TLS certificate was supplied and openssl is not installed.')
+    san = ','.join(['DNS:localhost'] + [f'IP:{ip}' for ip in lan_addresses()])
+    command = [openssl, 'req', '-x509', '-newkey', 'rsa:2048', '-nodes', '-days', '825',
+               '-keyout', str(key), '-out', str(cert), '-subj', '/CN=AquaMusic Local',
+               '-addext', f'subjectAltName={san}']
+    subprocess.run(command, check=True, capture_output=True)
+    os.chmod(key, 0o600)
+    return str(cert), str(key)
+
+def stop_share_server():
+    global SHARE_SERVER, SHARE_THREAD
+    with SHARE_LOCK:
+        server = SHARE_SERVER
+        SHARE_SERVER = None
+        SHARE_THREAD = None
+    # shutdown() waits for serve_forever() and must not run inside the request
+    # thread that server is currently handling.
+    if server:
+        threading.Thread(target=server.shutdown, daemon=True).start()
+
+def start_share_server(config):
+    global SHARE_SERVER, SHARE_THREAD
+    stop_share_server()
+    port = 5000
+    server = make_server('0.0.0.0', port, app, threaded=True)
+    with SHARE_LOCK:
+        SHARE_SERVER = server
+        SHARE_THREAD = threading.Thread(target=server.serve_forever, daemon=True)
+        SHARE_THREAD.start()
+    config.update({'enabled': True, 'port': port})
+    save_share_config(config)
+    return config
 
 def load_library():
     """Loads the track library database from disk if it exists."""
     global LIBRARY
-    if os.path.exists(LIBRARY_FILE):
-        try:
-            with open(LIBRARY_FILE, 'r', encoding='utf-8') as f:
-                LIBRARY = json.load(f)
+    try:
+        with database_connection() as connection:
+            rows = connection.execute('SELECT id, payload FROM tracks').fetchall()
+        if rows:
+            LIBRARY = {track_id: json.loads(payload) for track_id, payload in rows}
             # Keep a previously saved library from resurfacing video files
             # after the scanner has been restricted to audio-only formats.
             LIBRARY = {
@@ -37,22 +183,27 @@ def load_library():
                 if os.path.splitext(track.get('path', ''))[1].lower() in scanner.SUPPORTED_EXTENSIONS
             }
             print(f"[Library] Loaded {len(LIBRARY)} tracks from local file database.")
-        except Exception as e:
-            print(f"[Library] Load failed: {e}. Starting with an empty library.")
+        else:
             LIBRARY = {}
-    else:
+    except Exception as e:
+        print(f"[Library] Load failed: {e}. Starting with an empty library.")
         LIBRARY = {}
 
 def save_library():
-    """Saves the track library database to disk."""
+    """Atomically save cached paths and metadata in SQLite."""
     try:
-        with open(LIBRARY_FILE, 'w', encoding='utf-8') as f:
-            json.dump(LIBRARY, f, indent=2, ensure_ascii=False)
-        print(f"[Library] Saved {len(LIBRARY)} tracks to local database.")
+        with database_connection() as connection:
+            connection.execute('DELETE FROM tracks')
+            connection.executemany(
+                'INSERT INTO tracks (id, payload) VALUES (?, ?)',
+                [(track_id, json.dumps(track, ensure_ascii=False)) for track_id, track in LIBRARY.items()]
+            )
+        print(f"[Library] Saved {len(LIBRARY)} tracks to SQLite database.")
     except Exception as e:
         print(f"[Library] Save failed: {e}")
 
-# Initial load
+# Initialise and load before the HTTP server accepts requests.
+initialise_database()
 load_library()
 
 def get_mime(path):
@@ -101,6 +252,78 @@ def index():
 @app.route('/api/library', methods=['GET'])
 def get_library():
     return jsonify(LIBRARY)
+
+@app.route('/api/library/tracks', methods=['DELETE'])
+def remove_library_tracks():
+    """Remove tracks from the application's library database, not from disk."""
+    data = request.get_json(silent=True) or {}
+    track_ids = data.get('track_ids', [])
+    if not isinstance(track_ids, list) or not all(isinstance(track_id, str) for track_id in track_ids):
+        return jsonify({'status': 'error', 'message': 'track_ids must be a list of track IDs'}), 400
+
+    removed_ids = []
+    for track_id in set(track_ids):
+        if track_id in LIBRARY:
+            LIBRARY.pop(track_id)
+            # Avoid retaining artwork for a track that no longer exists in the library.
+            art.ART_CACHE.pop(track_id, None)
+            removed_ids.append(track_id)
+
+    if removed_ids:
+        save_library()
+    return jsonify({'status': 'ok', 'removed_ids': removed_ids})
+
+@app.route('/api/state/<key>', methods=['GET', 'PUT'])
+def persistent_state(key):
+    """Store user state (playlists, queue, settings) with the music database."""
+    if not re.fullmatch(r'[a-z0-9_-]{1,64}', key):
+        return jsonify({'status': 'error', 'message': 'Invalid state key'}), 400
+    if request.method == 'GET':
+        return jsonify(load_state(key, None))
+    value = request.get_json(silent=True)
+    if value is None:
+        return jsonify({'status': 'error', 'message': 'JSON data is required'}), 400
+    save_state(key, value)
+    return jsonify({'status': 'ok'})
+
+@app.route('/api/sharing', methods=['GET', 'POST'])
+def sharing_settings():
+    """Manage optional HTTPS access for trusted devices on the local network."""
+    if request.method == 'GET':
+        config = load_share_config()
+        config['addresses'] = lan_addresses()
+        config['urls'] = [f"http://{address}:{config['port']}" for address in config['addresses']] if config['enabled'] else []
+        return jsonify(config)
+
+    payload = request.get_json(silent=True) or {}
+    enabled = bool(payload.get('enabled', False))
+    config = load_share_config()
+    try:
+        if enabled:
+            config = start_share_server(config)
+        else:
+            stop_share_server()
+            config['enabled'] = False
+            save_share_config(config)
+        config['addresses'] = lan_addresses()
+        config['urls'] = [f"http://{address}:{config['port']}" for address in config['addresses']] if config['enabled'] else []
+        return jsonify(config)
+    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as error:
+        return jsonify({'status': 'error', 'message': str(error)}), 400
+
+def import_media_paths(paths):
+    """Imports files delivered by the desktop's OS 'Open With' integration."""
+    added = []
+    for raw_path in paths:
+        path = os.path.abspath(raw_path)
+        if os.path.isfile(path) and os.path.splitext(path)[1].lower() in scanner.SUPPORTED_EXTENSIONS:
+            track = scanner.scan_single_file(path)
+            if track:
+                LIBRARY[track['id']] = track
+                added.append(track['id'])
+    if added:
+        save_library()
+    return added
 
 # Library Stats
 @app.route('/api/library/stats', methods=['GET'])
@@ -416,10 +639,23 @@ def export_playlist():
 
 
 
+def serve_local(port=0, host='127.0.0.1'):
+    """Run the private local HTTP server used by the desktop application."""
+    return make_server(host, int(port), app, threaded=True)
+
 if __name__ == '__main__':
-    # Ensure static and templates dirs exist
-    os.makedirs(os.path.join(app.root_path, 'templates'), exist_ok=True)
-    os.makedirs(os.path.join(app.root_path, 'static', 'css'), exist_ok=True)
-    os.makedirs(os.path.join(app.root_path, 'static', 'js'), exist_ok=True)
-    
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Development mode remains private by default; Settings can explicitly
+    # enable the separate HTTPS LAN listener.
+    host = os.environ.get('AQUAMUSIC_HOST', '127.0.0.1')
+    server = serve_local(os.environ.get('AQUAMUSIC_PORT', '5000'), host)
+    port = server.server_port
+    print(f'[Local] Serving AquaMusic at http://127.0.0.1:{port}')
+    if host == '0.0.0.0':
+        addresses = lan_addresses()
+        if addresses:
+            print('[LAN] Open one of these HTTP URLs on another device:')
+            for address in addresses:
+                print(f'      http://{address}:{port}')
+        else:
+            print('[LAN] Server is listening on the network, but no LAN IPv4 address was detected.')
+    server.serve_forever()

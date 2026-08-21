@@ -4,15 +4,19 @@ class RatingsManager {
     this.ratings = {};
   }
 
-  init() {
-    // Load existing ratings database
-    const saved = localStorage.getItem('wavevault_ratings');
-    if (saved) {
-      try {
-        this.ratings = JSON.parse(saved);
-      } catch (e) {
-        this.ratings = {};
+  async init() {
+    try {
+      const saved = await window.api.getState('ratings');
+      if (saved && typeof saved === 'object') {
+        this.ratings = saved;
+      } else {
+        // One-time migration from the older WebEngine-only store.
+        try { this.ratings = JSON.parse(localStorage.getItem('wavevault_ratings') || '{}'); } catch (_) { this.ratings = {}; }
+        await window.api.saveState('ratings', this.ratings);
       }
+    } catch (error) {
+      console.warn('Could not load ratings from database.', error);
+      try { this.ratings = JSON.parse(localStorage.getItem('wavevault_ratings') || '{}'); } catch (_) { this.ratings = {}; }
     }
   }
 
@@ -26,6 +30,9 @@ class RatingsManager {
   setRating(trackId, rating) {
     this.ratings[trackId] = rating;
     localStorage.setItem('wavevault_ratings', JSON.stringify(this.ratings));
+    window.api.saveState('ratings', this.ratings).catch(error =>
+      console.warn('Could not save ratings to database.', error)
+    );
     
     // Notify lists and library details to refresh rating columns
     if (window.library) {
@@ -129,4 +136,3 @@ class RatingsManager {
 }
 
 window.ratings = new RatingsManager();
-window.ratings.init();

@@ -1,7 +1,7 @@
 // AquaMusic Playlists and Queue Manager
 class PlaylistsManager {
   constructor() {
-    this.playlists = []; // Array of {id, name, created, trackIds: []}
+    this.playlists = []; // Array of {id, name, created, trackIds: [], isLibrarySource?}
     this.activeQueue = []; // Active playback tracks list
     this.activeQueueIndex = -1;
     this.originalQueue = []; // Backup for unshuffling
@@ -13,9 +13,9 @@ class PlaylistsManager {
     this.isAutoSearchMode = false;
   }
 
-  init() {
-    this.loadPlaylists();
-    this.loadQueueState();
+  async init() {
+    await this.loadPlaylists();
+    await this.loadQueueState();
 
     // Bind modal create playlist button
     const btnCreateConfirm = document.getElementById('btn-create-playlist-confirm');
@@ -75,20 +75,22 @@ class PlaylistsManager {
     }
   }
 
-  loadPlaylists() {
-    const saved = localStorage.getItem('wavevault_playlists');
-    if (saved) {
-      try {
-        this.playlists = JSON.parse(saved);
-      } catch (e) {
-        this.playlists = [];
-      }
+  async loadPlaylists() {
+    try {
+      const saved = await window.api.getState('playlists');
+      if (Array.isArray(saved)) this.playlists = saved;
+    } catch (error) {
+      console.warn('Could not load playlists from database; using local backup.', error);
+      try { this.playlists = JSON.parse(localStorage.getItem('wavevault_playlists') || '[]'); } catch (_) { this.playlists = []; }
     }
     this.renderPlaylistsSidebar();
   }
 
   savePlaylists() {
     localStorage.setItem('wavevault_playlists', JSON.stringify(this.playlists));
+    window.api.saveState('playlists', this.playlists).catch(error =>
+      console.warn('Could not save playlists to database.', error)
+    );
     this.renderPlaylistsSidebar();
   }
 
@@ -126,11 +128,28 @@ class PlaylistsManager {
   async deletePlaylist(playlistId) {
     const pl = this.playlists.find(p => p.id === playlistId);
     if (!pl) return;
-    const confirmed = await window.dialog.confirm(`Are you sure you want to delete the playlist "${pl.name}"?`, 'Delete Playlist');
+    const trackIds = [...new Set(pl.trackIds || [])];
+    const confirmed = await window.dialog.confirm(
+      `Delete playlist "${pl.name}" and remove its ${trackIds.length} imported song${trackIds.length === 1 ? '' : 's'} from All Music? The audio files stay on disk.`,
+      'Delete Playlist'
+    );
     if (confirmed) {
+      const tracksStillOwnedByAnotherSource = new Set(
+        this.playlists
+          .filter(other => other.id !== playlistId && other.isLibrarySource)
+          .flatMap(other => other.trackIds || [])
+      );
+      const tracksToRemove = pl.isLibrarySource
+        ? trackIds.filter(trackId => !tracksStillOwnedByAnotherSource.has(trackId))
+        : [];
+      if (tracksToRemove.length) {
+        await window.api.removeLibraryTracks(tracksToRemove);
+        this.removeTracksEverywhere(tracksToRemove);
+        if (window.library) await window.library.reload();
+      }
       this.playlists = this.playlists.filter(p => p.id !== playlistId);
       this.savePlaylists();
-      window.toast.show("Playlist deleted.", "info");
+      window.toast.show(pl.isLibrarySource ? 'Playlist and its imported music removed from All Music.' : 'Playlist deleted.', 'info');
       
       // Update track filtering
       if (window.library) {
@@ -142,6 +161,40 @@ class PlaylistsManager {
         window.mainApp.switchView('songs');
       }
     }
+  }
+
+  removeTracksEverywhere(trackIds) {
+    const removed = new Set(trackIds);
+    this.playlists.forEach(playlist => {
+      playlist.trackIds = playlist.trackIds.filter(trackId => !removed.has(trackId));
+    });
+
+    const retainedQueue = this.activeQueue.filter(track => !removed.has(track.id));
+    const currentTrackId = window.player?.currentTrack?.id;
+    const currentWasRemoved = currentTrackId && removed.has(currentTrackId);
+    this.activeQueue = retainedQueue;
+    this.originalQueue = this.originalQueue.filter(track => !removed.has(track.id));
+    this.activeQueueIndex = currentWasRemoved || retainedQueue.length === 0
+      ? -1
+      : currentTrackId
+        ? Math.max(0, retainedQueue.findIndex(track => track.id === currentTrackId))
+        : Math.min(this.activeQueueIndex, retainedQueue.length - 1);
+    this.saveQueueState();
+
+    if (currentWasRemoved && window.player) {
+      window.player.stopAll();
+      localStorage.removeItem('wavevault_last_track_id');
+    }
+
+    ['wavevault_blacklist', 'wavevault_play_counts', 'wavevault_ratings'].forEach(key => {
+      try {
+        const value = JSON.parse(localStorage.getItem(key) || (key === 'wavevault_blacklist' ? '[]' : '{}'));
+        const updated = Array.isArray(value)
+          ? value.filter(trackId => !removed.has(trackId))
+          : Object.fromEntries(Object.entries(value).filter(([trackId]) => !removed.has(trackId)));
+        localStorage.setItem(key, JSON.stringify(updated));
+      } catch (_) { /* Keep malformed unrelated saved data untouched. */ }
+    });
   }
 
   renamePlaylist(playlistId, newName) {
@@ -350,12 +403,14 @@ class PlaylistsManager {
   /* ----------------------------------------------------
      PLAYBACK QUEUE MANAGEMENT (Module 11)
      ---------------------------------------------------- */
-  loadQueueState() {
-    const savedQueue = localStorage.getItem('wavevault_queue');
-    const savedIndex = localStorage.getItem('wavevault_queue_index');
-    const savedShuffle = localStorage.getItem('wavevault_shuffle');
-    const savedRepeat = localStorage.getItem('wavevault_repeat');
-    const savedAutopilot = localStorage.getItem('wavevault_autopilot');
+  async loadQueueState() {
+    let saved = null;
+    try { saved = await window.api.getState('queue'); } catch (_) { /* use local backup */ }
+    const savedQueue = saved?.activeQueue ? JSON.stringify(saved.activeQueue) : localStorage.getItem('wavevault_queue');
+    const savedIndex = saved?.activeQueueIndex?.toString() ?? localStorage.getItem('wavevault_queue_index');
+    const savedShuffle = saved?.isShuffled !== undefined ? JSON.stringify(saved.isShuffled) : localStorage.getItem('wavevault_shuffle');
+    const savedRepeat = saved?.repeatMode ?? localStorage.getItem('wavevault_repeat');
+    const savedAutopilot = saved?.isAutopilotEnabled !== undefined ? JSON.stringify(saved.isAutopilotEnabled) : localStorage.getItem('wavevault_autopilot');
 
     if (savedQueue) {
       try { this.activeQueue = JSON.parse(savedQueue); } catch (e) { this.activeQueue = []; }
@@ -383,6 +438,13 @@ class PlaylistsManager {
     localStorage.setItem('wavevault_shuffle', JSON.stringify(this.isShuffled));
     localStorage.setItem('wavevault_repeat', this.repeatMode);
     localStorage.setItem('wavevault_autopilot', JSON.stringify(this.isAutopilotEnabled));
+    window.api.saveState('queue', {
+      activeQueue: this.activeQueue,
+      activeQueueIndex: this.activeQueueIndex,
+      isShuffled: this.isShuffled,
+      repeatMode: this.repeatMode,
+      isAutopilotEnabled: this.isAutopilotEnabled
+    }).catch(error => console.warn('Could not save queue to database.', error));
   }
 
   setQueue(tracksList, startIndex = 0) {
@@ -878,44 +940,7 @@ class PlaylistsManager {
   }
 
   async importFolders(folderPaths) {
-    this.closeFolderSelector();
-    const paths = [...new Set(folderPaths)];
-    let importedCount = 0;
-    window.toast.show(`Importing ${paths.length} folder${paths.length === 1 ? '' : 's'}...`, 'info');
-
-    for (const folderPath of paths) {
-      try {
-        const res = await window.api.scanFolder(folderPath);
-        if (res.status !== 'ok') throw new Error(res.message || 'Scanner could not start');
-
-        await new Promise((resolve, reject) => {
-          const evtSource = new EventSource('/api/scan/status');
-          evtSource.onmessage = event => {
-            const state = JSON.parse(event.data);
-            if (state.status === 'done') {
-              evtSource.close();
-              resolve();
-            } else if (state.status === 'error') {
-              evtSource.close();
-              reject(new Error(state.message || 'Folder scan failed'));
-            }
-          };
-          evtSource.onerror = () => {
-          evtSource.close();
-          reject(new Error('Folder scan connection failed'));
-        };
-        });
-        importedCount += 1;
-      } catch (err) {
-        window.toast.show(`Could not import "${folderPath}": ${err.message || err}`, 'error');
-      }
-    }
-
-    if (importedCount > 0) {
-      if (window.library) await window.library.reload();
-      window.toast.show('Music folder import complete.', 'success');
-      if (window.mainApp) window.mainApp.switchView('songs');
-    }
+    return this.createPlaylistsFromFolders(folderPaths);
   }
 
   async createPlaylistsFromFolders(folderPaths) {
@@ -981,7 +1006,11 @@ class PlaylistsManager {
       id: 'pl-' + Math.random().toString(36).substr(2, 9),
       name: this.uniquePlaylistName(folderName),
       created: Date.now(),
-      trackIds: matchingTrackIds
+      trackIds: matchingTrackIds,
+      // Imported folders are library roots: deleting one removes these tracks
+      // from every app view and playlist, while leaving the files on disk.
+      isLibrarySource: true,
+      sourceFolder: folderPath
     };
     this.playlists.push(newPlaylist);
     this.savePlaylists();

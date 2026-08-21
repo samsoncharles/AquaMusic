@@ -120,6 +120,8 @@ class SettingsManager {
       btnReset.addEventListener('click', () => this.clearAllData());
     }
 
+    this.initSharing();
+
     // Initial config loads
     this.loadSettings();
   }
@@ -200,6 +202,35 @@ class SettingsManager {
       speedSelect.addEventListener('change', (e) => {
         if (window.player) window.player.setPlaybackSpeed(e.target.value);
       });
+    }
+  }
+
+  async initSharing() {
+    const enabled = document.getElementById('setting-share-enabled');
+    const fields = document.getElementById('setting-share-fields');
+    const links = document.getElementById('setting-share-links');
+    const render = (config) => {
+      enabled.checked = !!config.enabled;
+      fields.style.display = enabled.checked ? 'flex' : 'none';
+      links.textContent = (config.urls || []).length ? `Open on your Wi-Fi: ${(config.urls || []).join('  •  ')}` : '';
+    };
+    try { render(await window.api.getSharing()); } catch (_) { /* server may be starting */ }
+    enabled.addEventListener('change', () => {
+      fields.style.display = enabled.checked ? 'flex' : 'none';
+      this.saveSharing();
+    });
+  }
+
+  async saveSharing() {
+    const enabled = document.getElementById('setting-share-enabled');
+    try {
+      const result = await window.api.saveSharing({
+        enabled: enabled.checked
+      });
+      document.getElementById('setting-share-links').textContent = (result.urls || []).length ? `Open on your Wi-Fi: ${result.urls.join('  •  ')}` : '';
+      window.toast.show(enabled.checked ? 'Network sharing is active on HTTP port 5000.' : 'Network sharing is off; AquaMusic is local only.', 'success');
+    } catch (error) {
+      window.toast.show(`Could not change sharing: ${error.message || error}`, 'error');
     }
   }
 
@@ -289,6 +320,9 @@ class SettingsManager {
     if (confirmed) {
       this.disconnectScanFeed();
       localStorage.clear();
+      await window.api.saveState('preferences', {});
+      await window.api.saveState('playlists', []);
+      await window.api.saveState('queue', {});
       window.location.reload();
     }
   }

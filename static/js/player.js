@@ -37,6 +37,7 @@ class AquaMusicPlayer {
     this.playbackSpeed = 1.0;
     this.isMuted = false;
     this.volume = 1.0; // Original unmodified volume
+    this.lastSessionCheckpoint = 0;
   }
 
   /**
@@ -112,6 +113,10 @@ class AquaMusicPlayer {
       this.onTrackEnded();
     });
 
+    audioElement.addEventListener('pause', () => {
+      if (audioElement === this.activeAudio) this.saveSession(true);
+    });
+
     audioElement.addEventListener('error', (e) => {
       console.error("[Player] Audio tag error:", e);
       window.toast.show("Playback error. Skipping track...", "error");
@@ -179,6 +184,7 @@ class AquaMusicPlayer {
       this.activeAudio.pause();
       this.isPlaying = false;
       this.updatePlayPauseButton();
+      this.saveSession(true);
     } else {
       if (this.audioCtx.state === 'suspended') {
         await this.audioCtx.resume();
@@ -186,6 +192,7 @@ class AquaMusicPlayer {
       this.activeAudio.play();
       this.isPlaying = true;
       this.updatePlayPauseButton();
+      this.saveSession(true);
       
       if (this.sweetFadesEnabled) {
         this.gainNode.gain.setValueAtTime(0.0, this.audioCtx.currentTime);
@@ -212,6 +219,7 @@ class AquaMusicPlayer {
     if (!this.currentTrack) return;
     this.activeAudio.currentTime = seconds;
     this.onTimeUpdate();
+    this.saveSession(true);
   }
 
   seekRelative(secs) {
@@ -243,6 +251,7 @@ class AquaMusicPlayer {
 
   toggleMute() {
     this.isMuted = !this.isMuted;
+    localStorage.setItem('wavevault_muted', JSON.stringify(this.isMuted));
     this.setVolume(this.volume);
   }
 
@@ -412,6 +421,26 @@ class AquaMusicPlayer {
         }
       }
     }
+
+    this.saveSession(false);
+  }
+
+  saveSession(force = false) {
+    const now = Date.now();
+    if (!force && now - this.lastSessionCheckpoint < 5000) return;
+    if (!this.currentTrack) return;
+    this.lastSessionCheckpoint = now;
+    const session = {
+      trackId: this.currentTrack.id,
+      position: Number.isFinite(this.activeAudio.currentTime) ? this.activeAudio.currentTime : 0,
+      wasPlaying: this.isPlaying,
+      savedAt: now
+    };
+    localStorage.setItem('wavevault_last_track_id', session.trackId);
+    localStorage.setItem('wavevault_last_position', session.position.toString());
+    window.api.saveState('playback', session).catch(error =>
+      console.warn('Could not save playback session.', error)
+    );
   }
 
   prebufferNextTrack() {
@@ -481,6 +510,7 @@ class AquaMusicPlayer {
     if (window.playlists) {
       localStorage.setItem('wavevault_queue_index', window.playlists.activeQueueIndex.toString());
     }
+    this.saveSession(true);
 
     // Trigger theme dynamic color swaps
     if (window.themes) {
@@ -621,35 +651,53 @@ class AquaMusicPlayer {
       row.classList.toggle('active-playing', row.dataset.id === trackId);
     });
 
-    // Auto-scroll active song row into view inside the content area list
-    setTimeout(() => {
-      // 1. If we are in the main songs tab (using virtual scroll)
-      if (window.library && typeof window.library.scrollToTrack === 'function') {
-        window.library.scrollToTrack(trackId);
-      }
-      
-      // 2. If we are in a non-virtual list (e.g., playlists, folder details, queue lists)
-      const activeRowInContent = document.querySelector('#content-area .song-row.active-playing');
-      if (activeRowInContent && !activeRowInContent.closest('.virtual-scroll-viewport')) {
-        const scrollParent = activeRowInContent.closest('[style*="overflow"]') || activeRowInContent.closest('#content-area');
-        if (scrollParent) {
-          const rowRect = activeRowInContent.getBoundingClientRect();
-          const parentRect = scrollParent.getBoundingClientRect();
-          const targetTop = Math.max(0, scrollParent.scrollTop + (rowRect.top - parentRect.top) - (parentRect.height / 2) + (rowRect.height / 2));
-          const currentScroll = scrollParent.scrollTop;
-          const distance = Math.abs(currentScroll - targetTop);
+    // Wait for the current view to finish rendering, then map the playing
+    // track to that view's exact row. Do not use the Songs virtual list while
+    // the user is looking at a playlist, folder, or queue.
+    requestAnimationFrame(() => requestAnimationFrame(() => this.syncPlayingRowToCurrentView(trackId)));
+  }
 
-          if (distance > 500 && window.library && typeof window.library.triggerLoadingJump === 'function') {
-            window.library.triggerLoadingJump(scrollParent, targetTop, null, trackId);
-          } else if (distance > 5) {
-            activeRowInContent.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            if (window.library && typeof window.library.highlightRow === 'function') {
-              window.library.highlightRow(scrollParent, trackId, 200);
-            }
-          }
-        }
+  syncPlayingRowToCurrentView(trackId) {
+    const currentView = window.mainApp?.currentView;
+    if (currentView === 'songs') {
+      window.library?.scrollToTrack?.(trackId);
+      return;
+    }
+
+    const contentArea = document.getElementById('content-area');
+    if (!contentArea) return;
+    const row = [...contentArea.querySelectorAll('.song-row')]
+      .find(candidate => candidate.dataset.id === trackId);
+    if (!row) return; // The playing track is not part of the view the user chose.
+
+    const scrollParent = this.findScrollParent(row, contentArea);
+    if (!scrollParent) return;
+
+    const rowRect = row.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    const targetTop = Math.max(
+      0,
+      scrollParent.scrollTop + rowRect.top - parentRect.top - (parentRect.height - rowRect.height) / 2
+    );
+    if (Math.abs(scrollParent.scrollTop - targetTop) > 4) {
+      scrollParent.scrollTo({ top: targetTop, behavior: 'smooth' });
+    }
+
+    row.classList.remove('jump-pulse');
+    void row.offsetWidth;
+    row.classList.add('jump-pulse');
+  }
+
+  findScrollParent(element, fallback) {
+    let parent = element.parentElement;
+    while (parent && parent !== fallback) {
+      const style = window.getComputedStyle(parent);
+      if (/(auto|scroll)/.test(style.overflowY) && parent.scrollHeight > parent.clientHeight) {
+        return parent;
       }
-    }, 100);
+      parent = parent.parentElement;
+    }
+    return fallback.scrollHeight > fallback.clientHeight ? fallback : null;
   }
 
   updateVolumeIcon() {
