@@ -45,6 +45,11 @@ window.api = {
     });
   },
 
+  /** Clears every indexed track without deleting any source audio files. */
+  clearLibrary() {
+    return this.request('/api/library', { method: 'DELETE' });
+  },
+
   getState(key) {
     return this.request(`/api/state/${encodeURIComponent(key)}`);
   },

@@ -273,6 +273,15 @@ def remove_library_tracks():
         save_library()
     return jsonify({'status': 'ok', 'removed_ids': removed_ids})
 
+@app.route('/api/library', methods=['DELETE'])
+def clear_library():
+    """Clear the application's complete music index without touching audio files."""
+    removed_ids = list(LIBRARY)
+    LIBRARY.clear()
+    art.ART_CACHE.clear()
+    save_library()
+    return jsonify({'status': 'ok', 'removed_ids': removed_ids})
+
 @app.route('/api/state/<key>', methods=['GET', 'PUT'])
 def persistent_state(key):
     """Store user state (playlists, queue, settings) with the music database."""

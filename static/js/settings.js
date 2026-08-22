@@ -319,11 +319,21 @@ class SettingsManager {
     const confirmed = await window.dialog.confirm("WARNING: This will wipe all AquaMusic metadata, configurations, user playlists, ratings, and play counts. Are you sure?", "Reset All Data");
     if (confirmed) {
       this.disconnectScanFeed();
-      localStorage.clear();
-      await window.api.saveState('preferences', {});
-      await window.api.saveState('playlists', []);
-      await window.api.saveState('queue', {});
-      window.location.reload();
+      try {
+        // The library is persisted separately from browser preferences, so it
+        // must be cleared explicitly as part of a full local-data reset.
+        await window.api.clearLibrary();
+        await Promise.all([
+          window.api.saveState('preferences', {}),
+          window.api.saveState('playlists', []),
+          window.api.saveState('queue', {}),
+          window.api.saveState('playback', {})
+        ]);
+        localStorage.clear();
+        window.location.reload();
+      } catch (error) {
+        window.toast.show(`Could not clear all local data: ${error.message || error}`, 'error');
+      }
     }
   }
 }

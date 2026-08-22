@@ -45,26 +45,29 @@ class SleepTimer {
     window.toast.show(`Sleep timer set for ${Math.round(seconds / 60)} minutes.`, "success");
     this.updateButton();
 
-    this.interval = setInterval(() => {
+    const tick = async () => {
       const remaining = this.endTime - Date.now();
       
       // Hook 30-second volume fade before closing
       if (remaining <= 30000 && remaining > 29000) {
-        if (window.player) {
+        if (window.player?.gainNode) {
           window.player.rampGain(window.player.gainNode.gain.value, 0, 30);
         }
       }
 
       if (remaining <= 0) {
         if (window.player) {
-          window.player.softPause();
+          await window.player.softPause();
         }
         this.cancel();
         window.toast.show("Sleep timer expired. Playback stopped.", "info");
       } else {
         this.updateButton(remaining);
       }
-    }, 1000);
+    };
+
+    tick();
+    this.interval = setInterval(tick, 1000);
   }
 
   startEndOfTrack() {
@@ -103,7 +106,9 @@ class SleepTimer {
       }
       this.cancel();
       window.toast.show("Sleep timer (End of Track) triggered. Playback stopped.", "info");
+      return true;
     }
+    return false;
   }
 
   updateButton(remainingMs = null) {

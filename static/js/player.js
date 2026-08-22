@@ -459,8 +459,7 @@ class AquaMusicPlayer {
     
     // Fire Sleep Timer checks if running
     if (window.sleepTimer) {
-      window.sleepTimer.onTrackEnded();
-      if (window.sleepTimer.mode !== 'off') return;
+      if (window.sleepTimer.onTrackEnded()) return;
     }
 
     // Increment playcount statistics
