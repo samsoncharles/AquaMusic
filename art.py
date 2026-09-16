@@ -2,39 +2,47 @@ import os
 import io
 import colorsys
 import hashlib
+import threading
 from mutagen import File
 from mutagen.flac import FLAC
 from mutagen.mp4 import MP4, MP4Cover
 from mutagen.oggvorbis import OggVorbis
-from PIL import Image
+from PIL import Image, ImageFile
+import requests
+
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 # In-memory LRU cache for art data
 # Dict mapping track_id -> (image_bytes, mime_type)
 ART_CACHE = {}
-MAX_CACHE_SIZE = 200
+MAX_CACHE_SIZE = 250
+_art_lock = threading.Lock()
 
 def get_cached_art(track_id):
-    """Retrieves image from cache if available."""
-    if track_id in ART_CACHE:
-        # Move to end (LRU behavior)
-        val = ART_CACHE.pop(track_id)
-        ART_CACHE[track_id] = val
-        return val
+    """Retrieves image from cache if available in a thread-safe manner."""
+    with _art_lock:
+        if track_id in ART_CACHE:
+            val = ART_CACHE.pop(track_id)
+            ART_CACHE[track_id] = val
+            return val
     return None
 
 def set_cached_art(track_id, image_bytes, mime_type):
-    """Puts image into LRU cache."""
-    if len(ART_CACHE) >= MAX_CACHE_SIZE:
-        # Remove oldest item (first item in dict keys)
-        oldest_key = next(iter(ART_CACHE))
-        ART_CACHE.pop(oldest_key)
-    ART_CACHE[track_id] = (image_bytes, mime_type)
+    """Puts image into LRU cache in a thread-safe manner."""
+    with _art_lock:
+        if len(ART_CACHE) >= MAX_CACHE_SIZE:
+            oldest_key = next(iter(ART_CACHE))
+            ART_CACHE.pop(oldest_key, None)
+        ART_CACHE[track_id] = (image_bytes, mime_type)
 
 def extract_art(file_path):
     """
     Extracts raw embedded artwork bytes and MIME type from an audio file.
-    Supports MP3 (ID3), FLAC, MP4/M4A, and Ogg Vorbis.
+    Supports MP3 (ID3), FLAC, MP4/M4A, Ogg Vorbis, and WMA.
     """
+    if not file_path or not os.path.exists(file_path):
+        return None, None
+
     try:
         audio = File(file_path)
         if audio is None:
@@ -47,10 +55,21 @@ def extract_art(file_path):
 
         # 2. MP3 ID3 APIC frame
         if hasattr(audio, 'tags') and audio.tags:
+            # Check standard getall
+            if hasattr(audio.tags, 'getall'):
+                apics = audio.tags.getall('APIC')
+                if apics:
+                    apic = apics[0]
+                    mime = getattr(apic, 'mime', 'image/jpeg')
+                    if mime == 'image/jpg':
+                        mime = 'image/jpeg'
+                    return apic.data, mime
+
+            # Check APIC keys fallback
             for key in audio.tags.keys():
-                if key.startswith('APIC:'):
+                if key.startswith('APIC'):
                     apic = audio.tags[key]
-                    mime = apic.mime
+                    mime = getattr(apic, 'mime', 'image/jpeg')
                     if mime == 'image/jpg':
                         mime = 'image/jpeg'
                     return apic.data, mime
@@ -95,6 +114,35 @@ def extract_art(file_path):
 
     return None, None
 
+def fetch_online_art(video_id, thumbnail_url=None):
+    """
+    Fetch thumbnail image for online/YouTube tracks and cache it.
+    """
+    cached = get_cached_art(video_id)
+    if cached:
+        return cached
+
+    urls = []
+    if thumbnail_url:
+        urls.append(thumbnail_url)
+    urls.extend([
+        f"https://i.ytimg.com/vi/{video_id}/maxresdefault.jpg",
+        f"https://i.ytimg.com/vi/{video_id}/hqdefault.jpg",
+        f"https://i.ytimg.com/vi/{video_id}/mqdefault.jpg",
+    ])
+
+    for url in urls:
+        try:
+            resp = requests.get(url, timeout=5)
+            if resp.status_code == 200 and len(resp.content) > 1000:
+                mime = resp.headers.get("Content-Type", "image/jpeg")
+                set_cached_art(video_id, resp.content, mime)
+                return resp.content, mime
+        except Exception:
+            continue
+
+    return None, None
+
 def get_dominant_color(image_bytes):
     """
     Computes a vibrant, glowing dominant accent color from artwork bytes.
@@ -111,7 +159,6 @@ def get_dominant_color(image_bytes):
 
         for r, g, b in pixels:
             h, s, v = colorsys.rgb_to_hsv(r / 255.0, g / 255.0, b / 255.0)
-            # Weight saturated and bright pixels heavily
             weight = (s * v) ** 2 + 0.01
             r_sum += r * weight
             g_sum += g * weight
@@ -141,7 +188,6 @@ def get_dominant_color(image_bytes):
         }
     except Exception as e:
         print(f"[Art Extractor] Dominant color error: {e}")
-        # Default Electric Violet accent fallback
         return {'r': 124, 'g': 106, 'b': 247, 'hex': '#7C6AF7'}
 
 def generate_default_art_svg(artist, album):

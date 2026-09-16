@@ -27,7 +27,7 @@ class RatingsManager {
   /**
    * Sets and saves a track's star rating.
    */
-  setRating(trackId, rating) {
+  setRating(trackId, rating, skipToast = false) {
     this.ratings[trackId] = rating;
     localStorage.setItem('wavevault_ratings', JSON.stringify(this.ratings));
     window.api.saveState('ratings', this.ratings).catch(error =>
@@ -38,7 +38,9 @@ class RatingsManager {
     if (window.library) {
       window.library.updateTrackProperties(trackId, { rating: rating });
     }
-    window.toast.show(`Track rated ${rating} star${rating !== 1 ? 's' : ''}`, 'success');
+    if (!skipToast) {
+      window.toast.show(`Track rated ${rating} star${rating !== 1 ? 's' : ''}`, 'success');
+    }
   }
 
   /**

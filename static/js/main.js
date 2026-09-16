@@ -16,6 +16,11 @@ class MainApp {
     // Restore settings/theme/playback preferences before any manager reads
     // localStorage. The source of truth is the per-user SQLite database.
     await window.persistence.init();
+    try {
+      window.onlineTracks = JSON.parse(localStorage.getItem('wavevault_online_tracks') || '{}');
+    } catch (_) {
+      window.onlineTracks = {};
+    }
     // 1. Determine local OS path separator
     this.detectOS();
 
@@ -176,6 +181,40 @@ class MainApp {
       gSearch.addEventListener('input', (e) => {
         if (window.library) window.library.setSearchQuery(e.target.value);
       });
+      gSearch.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          const val = gSearch.value.trim();
+          if (val) {
+            this.switchView('online');
+            setTimeout(() => {
+              const onlineInput = document.getElementById('online-search-input');
+              if (onlineInput) {
+                onlineInput.value = val;
+                if (window.views && window.views.triggerOnlineSearch) {
+                  window.views.triggerOnlineSearch(val);
+                }
+              }
+            }, 80);
+          }
+        }
+      });
+      gSearch.addEventListener('paste', (e) => {
+        const text = (e.clipboardData || window.clipboardData).getData('text')?.trim();
+        if (text && (text.startsWith('http://') || text.startsWith('https://') || text.includes('youtube.com') || text.includes('youtu.be'))) {
+          e.preventDefault();
+          gSearch.value = text;
+          this.switchView('online');
+          setTimeout(() => {
+            const onlineInput = document.getElementById('online-search-input');
+            if (onlineInput) {
+              onlineInput.value = text;
+            }
+            if (window.views && window.views.triggerOnlineSearch) {
+              window.views.triggerOnlineSearch(text);
+            }
+          }, 80);
+        }
+      });
     }
 
     // ===== PLAYER TRANSPORT CONTROLS =====
@@ -315,32 +354,71 @@ class MainApp {
       });
     }
 
-    // Master Timeline Progress Slider drag clicks
+    // Master Timeline Progress Slider drag clicks & touch scrub
     const timelineContainer = document.getElementById('timeline-slider-container');
     if (timelineContainer) {
       let isTimelineDragging = false;
-      const seek = (e) => {
-        if (!window.player || !window.player.currentTrack) return;
+      const fill = document.getElementById('timeline-slider-fill');
+      const handle = document.getElementById('timeline-slider-handle');
+      const lblCurrent = document.getElementById('time-current');
+
+      const getPctFromEvent = (e) => {
         const rect = timelineContainer.getBoundingClientRect();
-        const pct = Math.max(0, Math.min((e.clientX - rect.left) / rect.width, 1.0));
+        if (rect.width <= 0) return 0;
+        const clientX = (e.touches && e.touches[0]) ? e.touches[0].clientX : ((e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientX : e.clientX);
+        return Math.max(0, Math.min((clientX - rect.left) / rect.width, 1.0));
+      };
+
+      const updateVisualScrub = (pct) => {
+        if (fill) fill.style.width = `${pct * 100}%`;
+        if (handle) handle.style.left = `${pct * 100}%`;
+        if (lblCurrent && window.player) {
+          const duration = window.player.getDuration();
+          if (duration > 0) {
+            lblCurrent.innerText = window.player.formatTime(pct * duration);
+          }
+        }
+      };
+
+      const commitSeek = (pct) => {
+        if (!window.player || !window.player.currentTrack) return;
         const duration = window.player.getDuration();
-        if (duration > 0) {
+        if (duration > 0 && isFinite(duration)) {
           window.player.seekTo(pct * duration);
         }
       };
 
-      timelineContainer.addEventListener('mousedown', (e) => {
+      const onStart = (e) => {
+        if (!window.player || !window.player.currentTrack) return;
         isTimelineDragging = true;
-        seek(e);
-      });
+        if (window.player) window.player.isUserSeeking = true;
+        const pct = getPctFromEvent(e);
+        updateVisualScrub(pct);
+      };
 
-      window.addEventListener('mousemove', (e) => {
-        if (isTimelineDragging) seek(e);
-      });
+      const onMove = (e) => {
+        if (!isTimelineDragging) return;
+        const pct = getPctFromEvent(e);
+        updateVisualScrub(pct);
+      };
 
-      window.addEventListener('mouseup', () => {
+      const onEnd = (e) => {
+        if (!isTimelineDragging) return;
+        const pct = getPctFromEvent(e);
+        commitSeek(pct);
         isTimelineDragging = false;
-      });
+        if (window.player) {
+          setTimeout(() => { if (window.player) window.player.isUserSeeking = false; }, 60);
+        }
+      };
+
+      timelineContainer.addEventListener('mousedown', onStart);
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onEnd);
+
+      timelineContainer.addEventListener('touchstart', onStart, { passive: true });
+      window.addEventListener('touchmove', onMove, { passive: true });
+      window.addEventListener('touchend', onEnd);
     }
   }
 
@@ -536,6 +614,8 @@ class MainApp {
       if (sub) sub.innerText = `${window.library.visibleTracksList.length} songs rated 4+ stars`;
     } else if (viewName === 'queue') {
       window.views.renderQueueView();
+    } else if (viewName === 'online') {
+      window.views.renderOnlineView();
     } else if (viewName.startsWith('playlist-')) {
       const plId = viewName.replace('playlist-', '');
       window.views.renderPlaylistView(plId);

@@ -10,14 +10,14 @@
   <script src="/static/vendor/lucide.min.js"></script>
   
   <!-- CSS Stylesheets -->
-  <link rel="stylesheet" href="/static/css/themes.css?v=19">
-  <link rel="stylesheet" href="/static/css/main.css?v=19">
-  <link rel="stylesheet" href="/static/css/sidebar.css?v=20">
-  <link rel="stylesheet" href="/static/css/player.css?v=28">
-  <link rel="stylesheet" href="/static/css/library.css?v=24">
-  <link rel="stylesheet" href="/static/css/eq.css?v=19">
-  <link rel="stylesheet" href="/static/css/lyrics.css?v=19">
-  <link rel="stylesheet" href="/static/css/modals.css?v=19">
+  <link rel="stylesheet" href="/static/css/themes.css?v=67">
+  <link rel="stylesheet" href="/static/css/main.css?v=67">
+  <link rel="stylesheet" href="/static/css/sidebar.css?v=67">
+  <link rel="stylesheet" href="/static/css/player.css?v=67">
+  <link rel="stylesheet" href="/static/css/library.css?v=67">
+  <link rel="stylesheet" href="/static/css/eq.css?v=67">
+  <link rel="stylesheet" href="/static/css/lyrics.css?v=67">
+  <link rel="stylesheet" href="/static/css/modals.css?v=67">
 </head>
 <body>
 
@@ -26,6 +26,13 @@
     <div class="loader"></div>
     <h3 style="font-family: var(--font-display);">Booting AquaMusic</h3>
     <p style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 4px;">Loading library databases...</p>
+  </div>
+
+  <!-- Dynamic 2 Ambient Living Aurora Backdrop -->
+  <div id="dynamic2-aurora-bg" class="dynamic2-aurora-bg" aria-hidden="true">
+    <div class="aurora-blob aurora-blob-1" id="aurora-blob-1"></div>
+    <div class="aurora-blob aurora-blob-2" id="aurora-blob-2"></div>
+    <div class="aurora-blob aurora-blob-3" id="aurora-blob-3"></div>
   </div>
 
   <div id="app-container">
@@ -97,9 +104,32 @@
             </a>
           </nav>
 
+          <!-- Online & Streaming Section -->
+          <nav class="sidebar-section">
+            <span class="sidebar-section-title">Online Music</span>
+            <a class="sidebar-item" data-view="online" id="nav-item-online">
+              <svg class="sidebar-svg-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0; transition: transform 0.2s ease, color 0.2s ease;">
+                <path d="M2.5 17a24.12 24.12 0 0 1 0-10 2 2 0 0 1 1.4-1.4 49.56 49.56 0 0 1 16.2 0A2 2 0 0 1 21.5 7a24.12 24.12 0 0 1 0 10 2 2 0 0 1-1.4 1.4 49.55 49.55 0 0 1-16.2 0A2 2 0 0 1 2.5 17" fill="currentColor" fill-opacity="0.15"/>
+                <polygon points="9.5 15.2 15 12 9.5 8.8" fill="currentColor"/>
+                <path d="M17.8 9.2a3.8 3.8 0 0 1 0 5.6" stroke="currentColor" fill="none"/>
+              </svg>
+              <span>YouTube Stream</span>
+            </a>
+          </nav>
+
           <!-- User Playlists Section -->
           <div class="sidebar-section">
-            <span class="sidebar-section-title">User Playlists</span>
+            <div style="display: flex; align-items: center; justify-content: space-between; padding-right: 8px; margin-bottom: 6px;">
+              <span class="sidebar-section-title" style="margin-bottom: 0;">User Playlists</span>
+              <div style="display: flex; gap: 4px; align-items: center;">
+                <button class="control-btn" id="btn-sidebar-import-m3u" title="Import M3U Playlist" style="width: 24px; height: 24px; padding: 3px;">
+                  <i data-lucide="file-down" style="width: 13px; height: 13px;"></i>
+                </button>
+                <button class="control-btn" id="btn-sidebar-new-playlist" title="New Playlist" style="width: 24px; height: 24px; padding: 3px;">
+                  <i data-lucide="plus" style="width: 13px; height: 13px;"></i>
+                </button>
+              </div>
+            </div>
             <div id="user-playlists-list">
               <!-- Custom user playlists will load here -->
             </div>
@@ -235,21 +265,118 @@
 
         </div>
 
-        <!-- Lyrics Panel Overlay -->
-        <div id="lyrics-panel">
-          <div class="lyrics-header">
-            <h4 style="font-family: var(--font-display);">Lyrics</h4>
-            <button class="lyrics-close-btn" id="btn-lyrics-close" aria-label="Close Lyrics">
-              <i data-lucide="x"></i>
-            </button>
-          </div>
-          <div class="lyrics-content" id="lyrics-content-scroller">
-            <!-- LRC scrolling or raw text injected -->
-          </div>
         </div>
       </aside>
 
     </main>
+
+    <!-- UNIFIED IMMERSIVE NOW PLAYING LYRICS VIEW -->
+    <div id="lyrics-panel" class="lyrics-immersive-view" style="display: none;">
+      <!-- Ambient Dynamic Glow Backdrop -->
+      <div class="lyrics-ambient-bg" id="lyrics-ambient-glow"></div>
+
+      <!-- Top Navigator Bar (Static Header) -->
+      <header class="lyrics-top-nav">
+        <button class="lyrics-back-btn" id="btn-lyrics-close" title="Close Lyrics (Esc or L)">
+          <i data-lucide="chevron-down"></i>
+          <span>Back to Library</span>
+        </button>
+
+        <div class="lyrics-nav-meta">
+          <div class="lyrics-brand-badge">
+            <i data-lucide="waves" class="lyrics-brand-icon"></i>
+            <span class="lyrics-brand-name">AquaMusic</span>
+            <span class="lyrics-brand-version">v1.0.1</span>
+          </div>
+          <span class="lyrics-nav-dot">•</span>
+          <span class="lyrics-nav-badge-source">NOW PLAYING</span>
+        </div>
+
+        <div class="lyrics-nav-upnext" id="lyrics-nav-queue-peek" title="Up next in queue">
+          <span class="lyrics-upnext-prefix">Up Next:</span>
+          <span class="lyrics-upnext-name" id="lyrics-nav-upnext-title">—</span>
+        </div>
+      </header>
+
+      <!-- 2-Column Main Showcase -->
+      <div class="lyrics-showcase-container">
+        <!-- Left Column: Big Artwork, Metadata, Spectrum Canvas, & In-View Player Controls (Static Column) -->
+        <div class="lyrics-showcase-left">
+          <div class="lyrics-art-wrapper" id="lyrics-art-wrapper">
+            <div class="lyrics-art-frame">
+              <img id="lyrics-cover-art" src="/static/images/default-art.svg" onerror="this.src='/static/images/default-art.svg'" alt="Cover Art">
+              <div class="lyrics-art-glow-ring"></div>
+              <!-- Double-tap / like heart animation overlay -->
+              <div class="heart-tap-overlay" id="lyrics-heart-anim-overlay">
+                <i data-lucide="heart"></i>
+              </div>
+            </div>
+            <canvas class="art-visualizer-canvas lyrics-radial-canvas" id="lyrics-art-visualizer-canvas" aria-label="Radial audio visualizer"></canvas>
+          </div>
+
+          <div class="lyrics-meta-details">
+            <h1 id="lyrics-display-title" class="lyrics-title">No Track Playing</h1>
+            <h3 id="lyrics-display-artist" class="lyrics-artist">AquaMusic</h3>
+            <p id="lyrics-display-album" class="lyrics-album"></p>
+          </div>
+
+          <!-- Live Audio Spectrum Visualizer Canvas inside Lyrics -->
+          <div class="lyrics-spectrum-dock" id="lyrics-spectrum-dock">
+            <canvas id="lyrics-visualizer-canvas"></canvas>
+          </div>
+
+          <!-- Dedicated In-View Full Player Controls -->
+          <div class="lyrics-embedded-player">
+            <div class="lyrics-scrub-container">
+              <span id="lyrics-time-elapsed" class="lyrics-scrub-time">0:00</span>
+              <input type="range" id="lyrics-seek-bar" min="0" max="100" value="0" step="0.1" class="lyrics-slider">
+              <span id="lyrics-time-remaining" class="lyrics-scrub-time">0:00</span>
+            </div>
+
+            <div class="lyrics-controls-row">
+              <button class="lyrics-btn-action" id="lyrics-btn-like" title="Like Track">
+                <i data-lucide="heart"></i>
+              </button>
+              <button class="lyrics-btn-action" id="lyrics-btn-shuffle" title="Shuffle">
+                <i data-lucide="shuffle"></i>
+              </button>
+              <button class="lyrics-btn-action" id="lyrics-btn-prev" title="Previous Track">
+                <i data-lucide="skip-back"></i>
+              </button>
+              <button class="lyrics-btn-action lyrics-btn-playpause" id="lyrics-btn-play" title="Play / Pause">
+                <i data-lucide="play"></i>
+              </button>
+              <button class="lyrics-btn-action" id="lyrics-btn-next" title="Next Track">
+                <i data-lucide="skip-forward"></i>
+              </button>
+              <button class="lyrics-btn-action" id="lyrics-btn-repeat" title="Repeat Mode">
+                <i data-lucide="repeat"></i>
+              </button>
+              <button class="lyrics-btn-action" id="lyrics-btn-visualizer" title="Toggle Spectrum Mode">
+                <i data-lucide="activity"></i>
+              </button>
+            </div>
+
+            <div class="lyrics-volume-wrap">
+              <button class="lyrics-btn-action sm" id="lyrics-btn-mute" title="Mute/Unmute">
+                <i data-lucide="volume-2"></i>
+              </button>
+              <input type="range" id="lyrics-vol-slider" min="0" max="100" value="100" class="lyrics-slider volume">
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Synchronized High-Typography Scrolling Lyrics -->
+        <div class="lyrics-showcase-right">
+          <div class="lyrics-content" id="lyrics-content-scroller">
+            <div class="lyric-empty">
+              <i data-lucide="music-4"></i>
+              <span>Select a song to view lyrics</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <!-- Collapsible 10-Band EQ Panel -->
     <aside id="eq-panel">
@@ -517,94 +644,219 @@
   </div>
 
   <!-- MODAL D: Settings Panel -->
-    <div class="modal-container" id="modal-settings" style="display: none; max-width: 480px;">
+    <div class="modal-container" id="modal-settings" style="display: none;">
       <div class="modal-header">
-        <h3>AquaMusic Configuration</h3>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <i data-lucide="sliders" style="width: 18px; height: 18px; color: var(--accent);"></i>
+          <h3 style="margin: 0; font-size: 1.05rem;">AquaMusic Settings</h3>
+        </div>
         <button class="modal-close-btn" id="btn-settings-close">
           <i data-lucide="x"></i>
         </button>
       </div>
-      <div class="modal-body" style="display: flex; flex-direction: column; gap: 16px;">
+      <div class="modal-body settings-modal-body">
 
-        <!-- Playback Tweaks -->
+        <!-- Playback Preferences -->
         <div class="settings-section">
-          <span class="settings-section-title">Playback Preferences</span>
-          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">Crossfade Transitions</span>
-              <label class="switch">
-                <input type="checkbox" id="setting-crossfade-enabled" checked style="opacity: 0; width: 0; height: 0;">
-                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
-              </label>
+          <span class="settings-section-title">Playback Engine</span>
+          
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Crossfade Transitions</div>
+              <div class="settings-row-desc">Seamless blend between consecutive tracks</div>
             </div>
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <label for="setting-crossfade-slider" style="font-size: 0.85rem; color: var(--text-secondary);">Crossfade Duration: <span id="setting-crossfade-val">5s</span></label>
-              <input type="range" id="setting-crossfade-slider" min="1" max="10" value="5" style="width: 120px; accent-color: var(--accent);">
+            <label class="switch">
+              <input type="checkbox" id="setting-crossfade-enabled" checked>
+              <span class="slider-round"></span>
+            </label>
+          </div>
+
+          <div class="settings-row settings-slider-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Crossfade Duration</div>
+              <div class="settings-row-desc">Transition cross-fade overlap time</div>
             </div>
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">Plexamp-style Sweet Fades</span>
-              <label class="switch">
-                <input type="checkbox" id="setting-sweet-fades" checked style="opacity: 0; width: 0; height: 0;">
-                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
-              </label>
+            <div class="settings-slider-wrap">
+              <input type="range" id="setting-crossfade-slider" min="1" max="10" value="5">
+              <span class="settings-pill-val" id="setting-crossfade-val">5s</span>
             </div>
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">Gapless Pre-buffering</span>
-              <label class="switch">
-                <input type="checkbox" id="setting-gapless" checked style="opacity: 0; width: 0; height: 0;">
-                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
-              </label>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Plexamp Sweet Fades</div>
+              <div class="settings-row-desc">Smart volume ramping and beat-matched curves</div>
             </div>
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">ReplayGain Normalization</span>
-              <label class="switch">
-                <input type="checkbox" id="setting-replaygain" checked style="opacity: 0; width: 0; height: 0;">
-                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
-              </label>
+            <label class="switch">
+              <input type="checkbox" id="setting-sweet-fades" checked>
+              <span class="slider-round"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Gapless Pre-buffering</div>
+              <div class="settings-row-desc">Pre-decode next track in background to prevent pauses</div>
             </div>
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">Mono Audio Output</span>
-              <label class="switch">
-                <input type="checkbox" id="setting-mono-output" style="opacity: 0; width: 0; height: 0;">
-                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
-              </label>
+            <label class="switch">
+              <input type="checkbox" id="setting-gapless" checked>
+              <span class="slider-round"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">ReplayGain Normalization</div>
+              <div class="settings-row-desc">Balance loudness between quiet and loud tracks</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-replaygain" checked>
+              <span class="slider-round"></span>
+            </label>
+          </div>
+
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Mono Audio Output</div>
+              <div class="settings-row-desc">Downmix stereo channels for single speakers/headphones</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-mono-output">
+              <span class="slider-round"></span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Appearance & Themes -->
+        <div class="settings-section">
+          <span class="settings-section-title">Visual Customization</span>
+
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Compact Table View</div>
+              <div class="settings-row-desc">Dense 40px rows for extensive libraries</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-compact-mode">
+              <span class="slider-round"></span>
+            </label>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 6px;">
+            <div class="settings-row-title" style="font-size: 0.82rem; color: var(--text-secondary);">Color Palette & Theme</div>
+            <div class="theme-picker-grid" id="setting-theme-picker">
+              <div class="theme-card" data-theme-val="dark-violet">
+                <span class="theme-swatch" style="background: linear-gradient(135deg, #0f0a1c 50%, #7b42f6 50%);"></span>
+                <span class="theme-card-name">Dark Violet</span>
+              </div>
+              <div class="theme-card" data-theme-val="midnight-blue">
+                <span class="theme-swatch" style="background: linear-gradient(135deg, #080b10 50%, #00d2ff 50%);"></span>
+                <span class="theme-card-name">Midnight</span>
+              </div>
+              <div class="theme-card" data-theme-val="carbon">
+                <span class="theme-swatch" style="background: linear-gradient(135deg, #050505 50%, #ffffff 50%);"></span>
+                <span class="theme-card-name">Carbon</span>
+              </div>
+              <div class="theme-card" data-theme-val="nord">
+                <span class="theme-swatch" style="background: linear-gradient(135deg, #2e3440 50%, #88c0d0 50%);"></span>
+                <span class="theme-card-name">Nord</span>
+              </div>
+              <div class="theme-card" data-theme-val="light-pure">
+                <span class="theme-swatch" style="background: linear-gradient(135deg, #ffffff 50%, #7c6af7 50%);"></span>
+                <span class="theme-card-name">Light</span>
+              </div>
+              <div class="theme-card" data-theme-val="dynamic" title="Dynamic: Colors entire system to match song thumbnail with living aurora & frosted glass">
+                <span class="theme-swatch" style="background: linear-gradient(135deg, #090d16 10%, #38bdf8 50%, #818cf8 80%, #f43f5e 100%);"></span>
+                <span class="theme-card-name">Dynamic</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-row" style="margin-top: 10px;">
+            <div class="settings-row-info">
+              <span class="settings-row-label">Dynamic Living Aurora Theme</span>
+              <span class="settings-row-desc">Living multi-color aurora backdrop & frosted glass matching the current song's thumbnail</span>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-dynamic-toggle">
+              <span class="slider-round"></span>
+            </label>
+          </div>
+
+          <!-- Dynamic Advanced Options & Live Palette Swatches -->
+          <div id="dynamic-options-panel" style="display: none; flex-direction: column; gap: 10px; margin-top: 8px; padding: 12px 14px; background: var(--bg-surface-3); border: 1px solid var(--border); border-radius: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-primary);">Extracted Cover Palette</span>
+              <div id="d2-swatches-preview" style="display: flex; gap: 8px; align-items: center;">
+                <span id="d2-swatch-1" title="Primary Accent" style="width: 18px; height: 18px; border-radius: 50%; background: var(--accent); border: 1.5px solid rgba(255,255,255,0.4); box-shadow: 0 0 8px var(--accent-glow);"></span>
+                <span id="d2-swatch-2" title="Harmonic Accent" style="width: 18px; height: 18px; border-radius: 50%; background: var(--accent-2, var(--accent)); border: 1.5px solid rgba(255,255,255,0.4);"></span>
+                <span id="d2-swatch-3" title="Highlight Accent" style="width: 18px; height: 18px; border-radius: 50%; background: var(--accent-3, var(--accent)); border: 1.5px solid rgba(255,255,255,0.4);"></span>
+              </div>
+            </div>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+              <span style="font-size: 0.75rem; color: var(--text-secondary);">Aurora Lighting Style</span>
+              <select id="setting-dynamic-style" style="background: var(--bg-surface-2); border: 1px solid var(--border); border-radius: 6px; color: var(--text-primary); font-size: 0.75rem; padding: 4px 8px;">
+                <option value="aurora">Living Aurora (Fluid & Glowing)</option>
+                <option value="neon">Neon Glass (High Vibrancy)</option>
+                <option value="subtle">Deep Twilight (Subtle Ambient)</option>
+              </select>
             </div>
           </div>
         </div>
 
-        <!-- Appearance styling -->
+        <!-- Safe Download Folder -->
         <div class="settings-section">
-          <span class="settings-section-title">Visual Customization</span>
-          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px;">
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-              <span style="font-size: 0.85rem; color: var(--text-secondary);">Compact Table View (40px)</span>
-              <label class="switch">
-                <input type="checkbox" id="setting-compact-mode" style="opacity: 0; width: 0; height: 0;">
-                <span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span>
-              </label>
-            </div>
+          <span class="settings-section-title">Safe Download Folder</span>
+          <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 2px 0 10px; line-height: 1.45;">
+            Designated safe directory for downloaded YouTube music. Files are saved as high-quality MP3s with embedded artwork, tags, and synced lyrics.
+          </p>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="setting-safe-folder-input" style="flex: 1; padding: 8px 12px; background: var(--bg-surface-3); border: 1px solid var(--border); border-radius: var(--border-radius); color: var(--text-primary); font-size: 0.8rem;" placeholder="/home/.../Music/AquaMusic/Downloads">
+            <button class="btn-primary" id="btn-save-safe-folder" style="padding: 8px 16px; font-size: 0.8rem; white-space: nowrap;">Save Folder</button>
           </div>
+          <div id="setting-safe-folder-status" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;"></div>
         </div>
 
         <!-- System options -->
         <div class="settings-section">
-          <span class="settings-section-title">Share to nearby devices</span>
-          <p style="font-size: 0.78rem; color: var(--text-secondary); margin: 6px 0 10px; line-height: 1.45;">Keep this off for a private desktop player. When enabled, AquaMusic listens on your Wi-Fi at HTTP port 5000. Your music files remain on this computer.</p>
-          <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px;">
-            <span style="font-size: 0.85rem; color: var(--text-secondary);">Share on network (HTTP :5000)</span>
-            <label class="switch"><input type="checkbox" id="setting-share-enabled" style="opacity: 0; width: 0; height: 0;"><span class="slider-round" style="position: absolute; cursor: pointer; inset: 0; background-color: var(--bg-surface-3); border-radius: 10px; transition: 0.3s;"></span></label>
+          <span class="settings-section-title">Network Sharing</span>
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title">Share on Local Network</div>
+              <div class="settings-row-desc">Listen to your music on nearby phones/devices via HTTP :5000</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-share-enabled">
+              <span class="slider-round"></span>
+            </label>
           </div>
-          <div id="setting-share-fields" style="display: none; flex-direction: column; gap: 8px; margin-top: 12px;">
-            <div id="setting-share-links" style="font-size: 0.78rem; color: var(--accent); word-break: break-all;"></div>
+          <div id="setting-share-fields" style="display: none; flex-direction: column; gap: 8px; margin-top: 10px;">
+            <div id="setting-share-links" style="font-size: 0.78rem; color: var(--accent); word-break: break-all; padding: 8px 10px; background: var(--bg-surface-3); border-radius: var(--border-radius); border: 1px solid var(--border);"></div>
           </div>
         </div>
 
+        <!-- Library Maintenance & Storage -->
         <div class="settings-section">
-          <span class="settings-section-title">System Actions</span>
-          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-            <button class="create-playlist-btn" id="btn-settings-clear" style="border-color: var(--danger); color: var(--danger); font-weight: bold;">
-              <i data-lucide="trash-2"></i>
-              <span>Reset & Clear All Local Data</span>
+          <span class="settings-section-title">Library Maintenance</span>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="settings-action-card-btn" id="btn-settings-prune">
+              <div class="settings-action-icon" style="background: rgba(59, 130, 246, 0.15); color: #60a5fa;">
+                <i data-lucide="scan-line"></i>
+              </div>
+              <div class="settings-action-info">
+                <div class="settings-action-name">Prune Missing & Deleted Files</div>
+                <div class="settings-action-desc">Clean up library entries for songs deleted manually from disk or safe folder</div>
+              </div>
+            </button>
+
+            <button class="settings-action-card-btn danger" id="btn-settings-clear">
+              <div class="settings-action-icon" style="background: rgba(239, 68, 68, 0.15); color: #f87171;">
+                <i data-lucide="trash-2"></i>
+              </div>
+              <div class="settings-action-info">
+                <div class="settings-action-name">Reset & Clear All Local Data</div>
+                <div class="settings-action-desc">Completely reset application index without deleting your audio files</div>
+              </div>
             </button>
           </div>
         </div>
@@ -654,48 +906,27 @@
 
   </div>
 
-  <!-- Switch slider styles for configuration box toggles -->
-  <style>
-    .switch input:checked + .slider-round {
-      background-color: var(--accent);
-    }
-    .switch .slider-round:before {
-      position: absolute;
-      content: "";
-      height: 14px;
-      width: 14px;
-      left: 3px;
-      bottom: 3px;
-      background-color: white;
-      border-radius: 50%;
-      transition: 0.3s;
-    }
-    .switch input:checked + .slider-round:before {
-      transform: translateX(20px);
-    }
-  </style>
-
   <!-- Core JavaScript modules loaded sequentially -->
-  <script src="/static/js/api.js?v=21"></script>
-  <script src="/static/js/persistence.js?v=1"></script>
-  <script src="/static/js/toast.js?v=19"></script>
-  <script src="/static/js/themes.js?v=19"></script>
-  <script src="/static/js/ratings.js?v=19"></script>
-  <script src="/static/js/tagger.js?v=19"></script>
-  <script src="/static/js/lyrics.js?v=19"></script>
-  <script src="/static/js/sleep-timer.js?v=20"></script>
-  <script src="/static/js/eq.js?v=19"></script>
-  <script src="/static/js/playlists.js?v=31"></script>
-  <script src="/static/js/waveform.js?v=19"></script>
-  <script src="/static/js/visualizer.js?v=24"></script>
-  <script src="/static/js/player.js?v=32"></script>
-  <script src="/static/js/library.js?v=25"></script>
-  <script src="/static/js/views.js?v=25"></script>
-  <script src="/static/js/settings.js?v=23"></script>
-  <script src="/static/js/keyboard.js?v=19"></script>
-  <script src="/static/js/dialog.js?v=19"></script>
-  <script src="/static/js/context-menu.js?v=21"></script>
-  <script src="/static/js/main.js?v=28"></script>
+  <script src="/static/js/api.js?v=67"></script>
+  <script src="/static/js/persistence.js?v=67"></script>
+  <script src="/static/js/toast.js?v=67"></script>
+  <script src="/static/js/themes.js?v=67"></script>
+  <script src="/static/js/ratings.js?v=67"></script>
+  <script src="/static/js/tagger.js?v=67"></script>
+  <script src="/static/js/lyrics.js?v=67"></script>
+  <script src="/static/js/sleep-timer.js?v=67"></script>
+  <script src="/static/js/eq.js?v=67"></script>
+  <script src="/static/js/playlists.js?v=67"></script>
+  <script src="/static/js/waveform.js?v=67"></script>
+  <script src="/static/js/visualizer.js?v=67"></script>
+  <script src="/static/js/player.js?v=67"></script>
+  <script src="/static/js/library.js?v=67"></script>
+  <script src="/static/js/views.js?v=67"></script>
+  <script src="/static/js/settings.js?v=67"></script>
+  <script src="/static/js/keyboard.js?v=67"></script>
+  <script src="/static/js/dialog.js?v=67"></script>
+  <script src="/static/js/context-menu.js?v=67"></script>
+  <script src="/static/js/main.js?v=67"></script>
 
 </body>
 </html>

@@ -5,11 +5,11 @@ class AquaMusicPlayer {
     
     // Alternating Audio elements for seamless gapless / crossfade support
     this.audioA = new Audio();
+    this.audioA.crossOrigin = 'anonymous';
     this.audioB = new Audio();
+    this.audioB.crossOrigin = 'anonymous';
     this.audioA.preload = 'metadata';
     this.audioB.preload = 'metadata';
-    this.audioA.crossOrigin = 'anonymous';
-    this.audioB.crossOrigin = 'anonymous';
 
     this.activeAudio = this.audioA;
     this.standbyAudio = this.audioB;
@@ -37,6 +37,7 @@ class AquaMusicPlayer {
     this.playbackSpeed = 1.0;
     this.isMuted = false;
     this.volume = 1.0; // Original unmodified volume
+    this.isUserSeeking = false;
     this.lastSessionCheckpoint = 0;
   }
 
@@ -113,62 +114,232 @@ class AquaMusicPlayer {
       this.onTrackEnded();
     });
 
-    audioElement.addEventListener('pause', () => {
-      if (audioElement === this.activeAudio) this.saveSession(true);
+    audioElement.addEventListener('play', () => {
+      if (audioElement === this.activeAudio) {
+        this.isPlaying = true;
+        this.updatePlayPauseButton();
+        this.saveSession(true);
+      }
     });
 
+    audioElement.addEventListener('pause', () => {
+      if (audioElement === this.activeAudio && !this.isCrossfading) {
+        this.isPlaying = false;
+        this.updatePlayPauseButton();
+        this.saveSession(true);
+      }
+    });
+
+    const handleDuration = () => {
+      if (audioElement !== this.activeAudio) return;
+      const dur = audioElement.duration;
+      if (dur && !isNaN(dur) && isFinite(dur) && dur > 0) {
+        if (this.currentTrack) {
+          this.currentTrack.duration = Math.round(dur);
+          this.currentTrack.duration_fmt = this.formatTime(dur);
+        }
+        const lblTotal = document.getElementById('time-total');
+        if (lblTotal) lblTotal.innerText = this.formatTime(dur);
+        const lblDuration = document.getElementById('time-duration');
+        if (lblDuration) lblDuration.innerText = this.formatTime(dur);
+        const lyrRemain = document.getElementById('lyrics-time-remaining');
+        if (lyrRemain) lyrRemain.innerText = this.formatTime(dur);
+      }
+    };
+    audioElement.addEventListener('loadedmetadata', handleDuration);
+    audioElement.addEventListener('durationchange', handleDuration);
+
     audioElement.addEventListener('error', (e) => {
-      console.error("[Player] Audio tag error:", e);
-      window.toast.show("Playback error. Skipping track...", "error");
-      this.next();
+      if (audioElement !== this.activeAudio) return;
+      if (!audioElement.src || audioElement.error?.code === 20) return; // Ignore aborts during fast track switches
+
+      console.warn("[Player] Stream error encountered:", audioElement.error);
+
+      // Attempt single resilient reconnect for the track
+      if (this.currentTrack && !this.retryAttempt) {
+        this.retryAttempt = true;
+        const savedTime = audioElement.currentTime || 0;
+        console.log(`[Player] Auto-reconnecting stream for "${this.currentTrack.title}"...`);
+        setTimeout(() => {
+          if (!this.currentTrack) return;
+          audioElement.src = `/api/stream/${this.currentTrack.id}?t=${Date.now()}`;
+          audioElement.load();
+          if (savedTime > 0) {
+            try { audioElement.currentTime = savedTime; } catch (_) {}
+          }
+          audioElement.play().then(() => {
+            this.retryAttempt = false;
+            this.isPlaying = true;
+            this.updatePlayPauseButton();
+          }).catch(err => {
+            console.warn("[Player] Reconnect failed:", err);
+            this.retryAttempt = false;
+            this.isPlaying = false;
+            this.updatePlayPauseButton();
+            window.toast.show(`Stream interrupted for "${this.currentTrack.title}". Click play to retry.`, "warning");
+          });
+        }, 1200);
+        return;
+      }
+
+      this.isPlaying = false;
+      this.updatePlayPauseButton();
+      window.toast.show(`Could not play "${this.currentTrack ? this.currentTrack.title : 'track'}".`, "error");
     });
   }
 
   /**
-   * Starts playing a track by its ID.
+   * Resolves a track object from ID or object, supporting both local and online tracks.
    */
-  async playTrack(trackId, forceNoCrossfade = false) {
+  resolveTrack(trackIdOrObj) {
+    if (!trackIdOrObj) return null;
+    if (typeof trackIdOrObj === 'object' && trackIdOrObj.id) {
+      window.onlineTracks = window.onlineTracks || {};
+      window.onlineTracks[trackIdOrObj.id] = trackIdOrObj;
+      return trackIdOrObj;
+    }
+    const tid = String(trackIdOrObj);
+    if (window.library && window.library.tracks && window.library.tracks[tid]) {
+      return window.library.tracks[tid];
+    }
+    if (window.onlineTracks && window.onlineTracks[tid]) {
+      return window.onlineTracks[tid];
+    }
+    if (this.currentTrack && String(this.currentTrack.id) === tid) {
+      return this.currentTrack;
+    }
+    return {
+      id: tid,
+      title: 'Online Stream',
+      artist: 'YouTube Music',
+      album: 'Stream',
+      duration: 0,
+      duration_fmt: '0:00',
+      thumbnail: `https://i.ytimg.com/vi/${tid}/hqdefault.jpg`,
+      is_online: true,
+      path: ''
+    };
+  }
+
+  /**
+   * Starts playing a track by its ID or track object.
+   */
+  async playTrack(trackIdOrObj, forceNoCrossfade = true) {
     await this.initAudioContext();
     
     // Resume audio context if suspended (browser security)
-    if (this.audioCtx.state === 'suspended') {
-      await this.audioCtx.resume();
+    if (this.audioCtx && this.audioCtx.state === 'suspended') {
+      try { await this.audioCtx.resume(); } catch (_) {}
     }
 
-    if (!window.library || !window.library.tracks[trackId]) return;
-    const track = window.library.tracks[trackId];
+    const track = this.resolveTrack(trackIdOrObj);
+    if (!track) return;
+    const trackId = track.id;
     
     this.preloadedNext = false;
+    this.retryAttempt = false;
 
-    // Decide if we should crossfade or load directly
-    if (this.isPlaying && this.crossfadeEnabled && this.crossfadeDuration > 0 && !forceNoCrossfade) {
-      await this.crossfadeTo(trackId);
-    } else {
-      // Standard load
-      this.currentTrack = track;
-      this.activeAudio.src = `/api/stream/${track.id}`;
-      this.activeAudio.playbackRate = this.playbackSpeed;
-      
-      // Reset channel gains
-      const currentGainNode = this.activeAudio === this.audioA ? this.gainA : this.gainB;
-      const standbyGainNode = this.activeAudio === this.audioA ? this.gainB : this.gainA;
-      
-      currentGainNode.gain.setValueAtTime(1.0, this.audioCtx.currentTime);
-      standbyGainNode.gain.setValueAtTime(0.0, this.audioCtx.currentTime);
+    // 1. Immediately stop any active or standby playback and reset positions
+    // 1. Immediately stop any active or standby playback and purge both audio sources
+    try {
+      this.audioA.pause();
+      this.audioB.pause();
+      this.audioA.removeAttribute('src');
+      this.audioB.removeAttribute('src');
+      this.audioA.load();
+      this.audioB.load();
+      this.audioA.currentTime = 0;
+      this.audioB.currentTime = 0;
+    } catch (_) {}
 
-      this.applyReplayGain(track);
-      
-      if (this.sweetFadesEnabled) {
-        // Ramp up from 0
-        this.gainNode.gain.setValueAtTime(0.0, this.audioCtx.currentTime);
-        this.activeAudio.play();
-        this.rampGain(0.0, this.isMuted ? 0.0 : this.volume, 0.2);
-      } else {
-        this.gainNode.gain.setValueAtTime(this.isMuted ? 0.0 : this.volume, this.audioCtx.currentTime);
-        this.activeAudio.play();
-      }
+    this.isCrossfading = false;
+    this.hasTriggeredAutoCrossfade = false;
 
-      this.onTrackChanged(track);
+    // Clear standby channel source so old stream never overlaps
+    try {
+      this.standbyAudio.removeAttribute('src');
+      this.standbyAudio.load();
+    } catch (_) {}
+
+    // 2. Immediately register currentTrack and reset scrubber & UI to 0:00
+    // 2. Immediately register currentTrack and reset scrubber & UI to 0:00 / track duration
+    this.currentTrack = track;
+    this.resetTimelineUI(track);
+    this.updateNowPlayingInfo(track);
+    if (window.mainApp && typeof window.mainApp.toggleNowPlayingPanel === 'function') {
+      window.mainApp.toggleNowPlayingPanel(true);
+    }
+
+    // 3. Load and play new track stream
+    this.activeAudio.src = `/api/stream/${track.id}`;
+    this.activeAudio.playbackRate = this.playbackSpeed;
+    this.activeAudio.load();
+    
+    // Reset channel gains
+    const currentGainNode = this.activeAudio === this.audioA ? this.gainA : this.gainB;
+    const standbyGainNode = this.activeAudio === this.audioA ? this.gainB : this.gainA;
+    
+    if (currentGainNode && this.audioCtx) currentGainNode.gain.setValueAtTime(1.0, this.audioCtx.currentTime);
+    if (standbyGainNode && this.audioCtx) standbyGainNode.gain.setValueAtTime(0.0, this.audioCtx.currentTime);
+
+    this.applyReplayGain(track);
+    
+    if (this.gainNode && this.audioCtx) {
+      this.gainNode.gain.setValueAtTime(this.isMuted ? 0.0 : this.volume, this.audioCtx.currentTime);
+    }
+
+    this.activeAudio.play().then(() => {
+      this.isPlaying = true;
+      this.updatePlayPauseButton();
+    }).catch(err => {
+      console.warn("[Player] play() deferred by browser policy:", err);
+    });
+
+    this.isPlaying = true;
+    this.updatePlayPauseButton();
+    this.onTrackChanged(track);
+  }
+
+  resetTimelineUI(track) {
+    const lblCurrent = document.getElementById('time-current');
+    const lblTotal = document.getElementById('time-total');
+    const lblDuration = document.getElementById('time-duration');
+    const lyrElapsed = document.getElementById('lyrics-time-elapsed');
+    const lyrRemain = document.getElementById('lyrics-time-remaining');
+    const timelineFill = document.getElementById('timeline-slider-fill');
+    const timelineHandle = document.getElementById('timeline-slider-handle');
+    const lyricsSeekBar = document.getElementById('lyrics-seek-bar');
+
+    const durFmt = (track?.duration && track.duration > 0)
+      ? (track.duration_fmt || this.formatTime(track.duration))
+      : (track?.duration_fmt && track.duration_fmt !== '0:00' ? track.duration_fmt : "0:00");
+
+    if (lblCurrent) lblCurrent.innerText = "0:00";
+    if (lblTotal) lblTotal.innerText = durFmt;
+    if (lblDuration) lblDuration.innerText = durFmt;
+    if (lyrElapsed) lyrElapsed.innerText = "0:00";
+    if (lyrRemain) lyrRemain.innerText = durFmt;
+
+    if (timelineFill) timelineFill.style.width = "0%";
+    if (timelineHandle) timelineHandle.style.left = "0%";
+    if (lyricsSeekBar) lyricsSeekBar.value = 0;
+
+    // Reset clock hands
+    const handSec = document.getElementById('upnext-hand-second');
+    const handMin = document.getElementById('upnext-hand-minute');
+    const ring = document.getElementById('upnext-clock-ring');
+    if (handSec) handSec.style.transform = 'rotate(0deg)';
+    if (handMin) handMin.style.transform = 'rotate(0deg)';
+    if (ring) ring.style.strokeDashoffset = '0';
+
+    // Reset waveform
+    if (window.waveform && typeof window.waveform.reset === 'function') {
+      window.waveform.reset();
+    }
+
+    // Update lyrics and trigger proactive background prefetching
+    if (window.lyrics) {
+      window.lyrics.onTrackChanged(track);
     }
   }
 
@@ -216,8 +387,17 @@ class AquaMusicPlayer {
   }
 
   seekTo(seconds) {
-    if (!this.currentTrack) return;
-    this.activeAudio.currentTime = seconds;
+    if (!this.currentTrack || !this.activeAudio) return;
+    if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) seconds = 0;
+    const dur = this.getDuration();
+    if (dur > 0 && isFinite(dur)) {
+      seconds = Math.min(seconds, dur);
+    }
+    try {
+      this.activeAudio.currentTime = seconds;
+    } catch (e) {
+      console.warn("[Player] seekTo error:", e);
+    }
     this.onTimeUpdate();
     this.saveSession(true);
   }
@@ -269,14 +449,19 @@ class AquaMusicPlayer {
   applyReplayGain(track) {
     if (!this.audioCtx) return;
     
-    // Default 0.0dB (no reduction) if replay gain disabled or not tagged
-    const rg = (this.replayGainEnabled && track.replay_gain !== null) ? track.replay_gain : 0.0;
+    // Default 0.0dB (no reduction) if replay gain disabled, missing, or invalid
+    let rg = 0.0;
+    if (this.replayGainEnabled && track && typeof track.replay_gain === 'number' && isFinite(track.replay_gain)) {
+      rg = track.replay_gain;
+    }
     const linear = Math.pow(10, rg / 20);
-    const gainVal = Math.min(linear, 1.0);
+    const gainVal = (isFinite(linear) && !isNaN(linear)) ? Math.min(Math.max(0.0, linear), 1.0) : 1.0;
 
     const activeChannelGain = this.activeAudio === this.audioA ? this.gainA : this.gainB;
-    if (activeChannelGain) {
-      activeChannelGain.gain.setValueAtTime(gainVal, this.audioCtx.currentTime);
+    if (activeChannelGain && activeChannelGain.gain && isFinite(this.audioCtx.currentTime)) {
+      try {
+        activeChannelGain.gain.setValueAtTime(gainVal, this.audioCtx.currentTime);
+      } catch (_) {}
     }
   }
 
@@ -298,10 +483,15 @@ class AquaMusicPlayer {
     if (this.isCrossfading) return;
     this.isCrossfading = true;
 
-    const nextTrack = window.library.tracks[nextTrackId];
+    const nextTrack = this.resolveTrack(nextTrackId);
+    if (!nextTrack) {
+      this.isCrossfading = false;
+      return;
+    }
+    const trackId = nextTrack.id;
     
     // 1. Prepare standby audio
-    this.standbyAudio.src = `/api/stream/${nextTrackId}`;
+    this.standbyAudio.src = `/api/stream/${trackId}`;
     this.standbyAudio.playbackRate = this.playbackSpeed;
     
     // Ensure standby channel volume is 0
@@ -310,13 +500,15 @@ class AquaMusicPlayer {
     
     standbyGainNode.gain.setValueAtTime(0.0, this.audioCtx.currentTime);
     
-    // Compute exact ReplayGains for both tracks (default to 0.0dB if disabled)
+    // Compute exact ReplayGains for both tracks (default to 0.0dB if disabled or invalid)
     const currentTrack = this.currentTrack;
-    const currentRG = (this.replayGainEnabled && currentTrack && currentTrack.replay_gain !== null) ? currentTrack.replay_gain : 0.0;
-    const currentTargetGain = Math.min(Math.pow(10, currentRG / 20), 1.0);
+    const currentRG = (this.replayGainEnabled && currentTrack && typeof currentTrack.replay_gain === 'number' && isFinite(currentTrack.replay_gain)) ? currentTrack.replay_gain : 0.0;
+    const currentLinear = Math.pow(10, currentRG / 20);
+    const currentTargetGain = (isFinite(currentLinear) && !isNaN(currentLinear)) ? Math.min(Math.max(0.0, currentLinear), 1.0) : 1.0;
 
-    const nextRG = (this.replayGainEnabled && nextTrack.replay_gain !== null) ? nextTrack.replay_gain : 0.0;
-    const targetGain = Math.min(Math.pow(10, nextRG / 20), 1.0);
+    const nextRG = (this.replayGainEnabled && nextTrack && typeof nextTrack.replay_gain === 'number' && isFinite(nextTrack.replay_gain)) ? nextTrack.replay_gain : 0.0;
+    const nextLinear = Math.pow(10, nextRG / 20);
+    const targetGain = (isFinite(nextLinear) && !isNaN(nextLinear)) ? Math.min(Math.max(0.0, nextLinear), 1.0) : 1.0;
 
     // 2. Play standby track
     try {
@@ -332,7 +524,9 @@ class AquaMusicPlayer {
     this.standbyAudio = temp; // standbyAudio is now the old track fading out
 
     this.currentTrack = nextTrack;
+    this.resetTimelineUI(nextTrack);
     this.onTrackChanged(nextTrack);
+
 
     // 3. Smooth cross-fade channel gains in parallel
     const steps = 40;
@@ -357,26 +551,45 @@ class AquaMusicPlayer {
   }
 
   onTimeUpdate() {
-    const curTime = this.activeAudio.currentTime;
+    if (!this.activeAudio) return;
+    const curTime = Number.isFinite(this.activeAudio.currentTime) ? this.activeAudio.currentTime : 0;
     const duration = this.getDuration();
     
-    // Update seeking layouts
-    const progressPercent = duration > 0 ? (curTime / duration) : 0;
+    // Update seeking layouts if user is not actively dragging
+    const progressPercent = (duration > 0 && isFinite(duration)) ? Math.max(0, Math.min(1, curTime / duration)) : 0;
     
-    // Update timeline progress fills
-    const fill = document.getElementById('timeline-slider-fill');
-    const handle = document.getElementById('timeline-slider-handle');
-    if (fill && handle) {
-      fill.style.width = `${progressPercent * 100}%`;
-      handle.style.left = `${progressPercent * 100}%`;
+    if (!this.isUserSeeking) {
+      const fill = document.getElementById('timeline-slider-fill');
+      const handle = document.getElementById('timeline-slider-handle');
+      if (fill && handle) {
+        fill.style.width = `${progressPercent * 100}%`;
+        handle.style.left = `${progressPercent * 100}%`;
+      }
+
+      // Update time indicators
+      const lblCurrent = document.getElementById('time-current');
+      if (lblCurrent) lblCurrent.innerText = this.formatTime(curTime);
     }
 
-    // Update time indicators
-    const lblCurrent = document.getElementById('time-current');
-    if (lblCurrent) lblCurrent.innerText = this.formatTime(curTime);
+    // Keep duration display synced once stream duration is resolved
+    if (duration > 0 && isFinite(duration)) {
+      const durFormatted = this.formatTime(duration);
+      const lblDuration = document.getElementById('time-duration');
+      if (lblDuration && (lblDuration.innerText === '0:00' || lblDuration.innerText === '--:--')) {
+        lblDuration.innerText = durFormatted;
+      }
+      const lblTotal = document.getElementById('time-total');
+      if (lblTotal && (lblTotal.innerText === '0:00' || lblTotal.innerText === '--:--')) {
+        lblTotal.innerText = durFormatted;
+      }
+      if (this.currentTrack && (!this.currentTrack.duration || this.currentTrack.duration <= 0)) {
+        this.currentTrack.duration = Math.round(duration);
+        this.currentTrack.duration_fmt = durFormatted;
+      }
+    }
 
     // Update Waveform progress
-    if (window.waveformSeekbar) {
+    if (window.waveformSeekbar && !this.isUserSeeking) {
       window.waveformSeekbar.updateProgress(progressPercent);
     }
 
@@ -489,6 +702,22 @@ class AquaMusicPlayer {
     }
   }
 
+  previous() {
+    this.prev();
+  }
+
+  toggleShuffle() {
+    if (window.playlists) {
+      window.playlists.toggleShuffle();
+    }
+  }
+
+  toggleRepeat() {
+    if (window.playlists) {
+      window.playlists.cycleRepeat();
+    }
+  }
+
   stopAll() {
     this.audioA.pause();
     this.audioB.pause();
@@ -502,7 +731,16 @@ class AquaMusicPlayer {
     this.isPlaying = true;
     this.hasTriggeredAutoCrossfade = false;
     this.updatePlayPauseButton();
-    this.updateNowPlayingInfo(track.id);
+    this.updateNowPlayingInfo(track);
+
+    // Update active-playing class on all visible song rows across the DOM
+    document.querySelectorAll('.song-row').forEach(row => {
+      if (row.dataset.id === String(track.id)) {
+        row.classList.add('active-playing');
+      } else {
+        row.classList.remove('active-playing');
+      }
+    });
 
     // Save states
     localStorage.setItem('wavevault_last_track_id', track.id);
@@ -513,7 +751,7 @@ class AquaMusicPlayer {
 
     // Trigger theme dynamic color swaps
     if (window.themes) {
-      window.themes.onTrackChanged(track.id);
+      window.themes.onTrackChanged(track.id, track);
     }
 
     // Trigger waveform canvas loader
@@ -521,25 +759,31 @@ class AquaMusicPlayer {
       window.waveformSeekbar.loadTrackWaveform(track.id);
     }
 
-    // Load LRC/Plain Lyrics
+    // Ensure lyrics and its player view are updated and cached offline
     if (window.lyrics) {
-      window.lyrics.loadLyrics(track.id);
+      window.lyrics.onTrackChanged(track);
     }
+
 
     // Register OS Media Session bindings
     this.updateMediaSession(track);
   }
 
   getDuration() {
-    if (this.activeAudio && !isNaN(this.activeAudio.duration)) {
+    if (this.activeAudio && !isNaN(this.activeAudio.duration) && isFinite(this.activeAudio.duration) && this.activeAudio.duration > 0) {
       return this.activeAudio.duration;
     }
-    return this.currentTrack ? this.currentTrack.duration : 0;
+    if (this.currentTrack && typeof this.currentTrack.duration === 'number' && isFinite(this.currentTrack.duration) && this.currentTrack.duration > 0) {
+      return this.currentTrack.duration;
+    }
+    return 0;
   }
 
   updatePlayPauseButton() {
     const playIcon = document.getElementById('play-pause-icon');
     const playBtn = document.getElementById('btn-play-pause');
+
+    document.body.classList.toggle('is-playing', !!this.isPlaying);
 
     if (playIcon) {
       if (this.isPlaying) {
@@ -571,7 +815,9 @@ class AquaMusicPlayer {
     const lblSamplerate = document.getElementById('nowplaying-samplerate');
     const starsWidget = document.getElementById('nowplaying-stars-widget');
 
-    if (!trackId || !window.library || !window.library.tracks[trackId]) {
+    const track = this.resolveTrack(trackId || this.currentTrack);
+
+    if (!track) {
       // Show beautiful idle state
       if (titleCellMini) titleCellMini.innerText = "Not Playing";
       if (artistCellMini) artistCellMini.innerText = "Select a song";
@@ -613,8 +859,7 @@ class AquaMusicPlayer {
     const liveLabel = document.querySelector('.nowplaying-live-label');
     if (liveLabel) liveLabel.style.display = '';
 
-    const track = window.library.tracks[trackId];
-    const artUrl = `/api/art/${track.id}?t=${Date.now()}`;
+    const artUrl = track.thumbnail || `/api/art/${track.id}?t=${Date.now()}`;
 
     // Fill Mini bar UI
     if (titleCellMini) titleCellMini.innerText = track.title;
@@ -751,30 +996,45 @@ class AquaMusicPlayer {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
 
+  triggerPulse(el) {
+    if (!el) return;
+    el.classList.remove('pulse-active');
+    void el.offsetWidth;
+    el.classList.add('pulse-active');
+    setTimeout(() => el.classList.remove('pulse-active'), 400);
+  }
+
   updateLikeButton(trackId) {
-    const btn = document.getElementById('btn-like-track');
-    if (!btn) return;
+    if (!trackId && this.currentTrack) trackId = this.currentTrack.id;
+    if (!trackId) return;
+
     const isLiked = window.ratings && window.ratings.getRating(trackId) >= 4;
-    btn.classList.toggle('liked', isLiked);
-    btn.title = isLiked ? 'Unlike this track' : 'Like this track';
-    
-    const icon = btn.querySelector('i');
-    if (icon) {
-      if (isLiked) {
-        icon.setAttribute('data-lucide', 'heart');
-        btn.style.color = 'var(--accent)';
-      } else {
-        icon.setAttribute('data-lucide', 'heart');
-        btn.style.color = '';
+    const btnMain = document.getElementById('btn-like-track');
+    const btnLyrics = document.getElementById('lyrics-btn-like');
+
+    [btnMain, btnLyrics].filter(Boolean).forEach(btn => {
+      btn.classList.toggle('liked', isLiked);
+      btn.classList.toggle('active', isLiked);
+      btn.title = isLiked ? 'Unlike this track' : 'Like this track';
+      btn.style.color = isLiked ? 'var(--accent)' : '';
+
+      const svg = btn.querySelector('svg');
+      if (svg) {
+        svg.style.fill = isLiked ? 'var(--accent)' : 'none';
+        svg.style.stroke = isLiked ? 'var(--accent)' : 'currentColor';
       }
-      if (window.lucide) window.lucide.createIcons({ nodeList: [icon] });
-    }
-    // Fill the SVG if liked
-    const svg = btn.querySelector('svg');
-    if (svg) {
-      svg.style.fill = isLiked ? 'var(--accent)' : 'none';
-      svg.style.stroke = isLiked ? 'var(--accent)' : 'currentColor';
-    }
+
+      const icon = btn.querySelector('i');
+      if (icon) {
+        icon.setAttribute('data-lucide', 'heart');
+        if (window.lucide) window.lucide.createIcons({ nodeList: [icon] });
+        const newSvg = btn.querySelector('svg');
+        if (newSvg) {
+          newSvg.style.fill = isLiked ? 'var(--accent)' : 'none';
+          newSvg.style.stroke = isLiked ? 'var(--accent)' : 'currentColor';
+        }
+      }
+    });
   }
 
   toggleLike() {
@@ -784,12 +1044,30 @@ class AquaMusicPlayer {
     const isLiked = currentRating >= 4;
     
     if (isLiked) {
-      window.ratings.setRating(trackId, 0);
+      window.ratings.setRating(trackId, 0, true);
       window.toast.show('Removed from Liked Music', 'info');
     } else {
-      window.ratings.setRating(trackId, 5);
+      window.ratings.setRating(trackId, 5, true);
       window.toast.show('Added to Liked Music', 'success');
+
+      // Heart pop animation overlay on cover art in both views
+      const heartAnim = document.getElementById('heart-anim-overlay');
+      if (heartAnim) {
+        heartAnim.classList.add('animate');
+        setTimeout(() => heartAnim.classList.remove('animate'), 700);
+      }
+      const lyricsHeartAnim = document.getElementById('lyrics-heart-anim-overlay');
+      if (lyricsHeartAnim) {
+        lyricsHeartAnim.classList.add('animate');
+        setTimeout(() => lyricsHeartAnim.classList.remove('animate'), 700);
+      }
     }
+
+    const btnMain = document.getElementById('btn-like-track');
+    const btnLyrics = document.getElementById('lyrics-btn-like');
+    this.triggerPulse(btnMain);
+    this.triggerPulse(btnLyrics);
+
     this.updateLikeButton(trackId);
     
     // Refresh star widget too

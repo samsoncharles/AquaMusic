@@ -73,6 +73,31 @@ class PlaylistsManager {
         }
       });
     }
+
+    // Sidebar quick actions: Create Playlist & Import M3U
+    const btnSidebarNew = document.getElementById('btn-sidebar-new-playlist');
+    if (btnSidebarNew) {
+      btnSidebarNew.addEventListener('click', () => {
+        const overlay = document.getElementById('modal-overlay');
+        const modal = document.getElementById('modal-new-playlist');
+        if (overlay) {
+          overlay.querySelectorAll('.modal-container').forEach(m => m.style.display = 'none');
+          overlay.classList.add('show');
+        }
+        if (modal) {
+          modal.style.display = 'block';
+          const input = document.getElementById('input-new-playlist-name');
+          if (input) { input.value = ''; setTimeout(() => input.focus(), 100); }
+        }
+      });
+    }
+
+    const btnSidebarImportM3u = document.getElementById('btn-sidebar-import-m3u');
+    if (btnSidebarImportM3u) {
+      btnSidebarImportM3u.addEventListener('click', () => {
+        this.triggerImportM3U();
+      });
+    }
   }
 
   async loadPlaylists() {
@@ -128,37 +153,178 @@ class PlaylistsManager {
   async deletePlaylist(playlistId) {
     const pl = this.playlists.find(p => p.id === playlistId);
     if (!pl) return;
-    const trackIds = [...new Set(pl.trackIds || [])];
-    const confirmed = await window.dialog.confirm(
-      `Delete playlist "${pl.name}" and remove its ${trackIds.length} imported song${trackIds.length === 1 ? '' : 's'} from All Music? The audio files stay on disk.`,
-      'Delete Playlist'
+    const trackIds = [...new Set([...(pl.trackIds || []), ...(pl.importedTrackIds || [])])];
+
+    // Check which tracks are referenced by ANY other existing playlist
+    const otherPlaylistsTracks = new Set(
+      this.playlists
+        .filter(other => other.id !== playlistId)
+        .flatMap(other => [...(other.trackIds || []), ...(other.importedTrackIds || [])])
     );
+
+    // Any track that was imported for or belongs to this playlist and not in other playlists
+    // Exclude any track inside the Safe Folder or downloaded from YouTube
+    const tracksToRemove = trackIds.filter(trackId => {
+      if (otherPlaylistsTracks.has(trackId)) return false;
+      const track = window.library?.tracks?.[trackId];
+      if (track) {
+        const p = (track.path || '').toLowerCase();
+        if (p.includes('/music/aquamusic') || p.includes('/aquamusic') || track.is_downloaded || track.youtube_id || track.source === 'download') {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    const message = tracksToRemove.length > 0
+      ? `Delete playlist "${pl.name}" and remove its ${tracksToRemove.length} linked track${tracksToRemove.length === 1 ? '' : 's'} from All Music? (Source files stay on disk.)`
+      : `Delete playlist "${pl.name}"?`;
+
+    const confirmed = await window.dialog.confirm(message, 'Delete Playlist');
     if (confirmed) {
-      const tracksStillOwnedByAnotherSource = new Set(
-        this.playlists
-          .filter(other => other.id !== playlistId && other.isLibrarySource)
-          .flatMap(other => other.trackIds || [])
-      );
-      const tracksToRemove = pl.isLibrarySource
-        ? trackIds.filter(trackId => !tracksStillOwnedByAnotherSource.has(trackId))
-        : [];
       if (tracksToRemove.length) {
-        await window.api.removeLibraryTracks(tracksToRemove);
-        this.removeTracksEverywhere(tracksToRemove);
-        if (window.library) await window.library.reload();
+        try {
+          await window.api.removeLibraryTracks(tracksToRemove);
+          this.removeTracksEverywhere(tracksToRemove);
+        } catch (e) {
+          console.error("Error removing linked tracks from library:", e);
+        }
       }
       this.playlists = this.playlists.filter(p => p.id !== playlistId);
       this.savePlaylists();
-      window.toast.show(pl.isLibrarySource ? 'Playlist and its imported music removed from All Music.' : 'Playlist deleted.', 'info');
-      
-      // Update track filtering
+
       if (window.library) {
+        await window.library.reload();
         window.library.applyFiltersAndSorts();
       }
+
+      window.toast.show(
+        tracksToRemove.length
+          ? `Playlist and ${tracksToRemove.length} linked track${tracksToRemove.length === 1 ? '' : 's'} removed from library.`
+          : 'Playlist deleted.',
+        'info'
+      );
 
       // If currently showing this playlist, switch to library songs view
       if (window.mainApp && window.mainApp.currentView === `playlist-${playlistId}`) {
         window.mainApp.switchView('songs');
+      }
+    }
+  }
+
+  /**
+   * Import playlist from an M3U / M3U8 playlist file.
+   */
+  async importM3UFile(file) {
+    if (!file) return;
+    window.toast.show(`Importing playlist from "${file.name}"...`, 'info');
+    try {
+      const content = await file.text();
+      const playlistName = file.name.replace(/\.[^/.]+$/, "");
+      const res = await window.api.importM3U(playlistName, content);
+      if (res && res.status === 'ok') {
+        const newPlaylist = {
+          id: 'pl-' + Math.random().toString(36).substr(2, 9),
+          name: this.uniquePlaylistName(res.name || playlistName),
+          created: Date.now(),
+          trackIds: res.track_ids || [],
+          importedTrackIds: res.track_ids || [],
+          isLibrarySource: true,
+          sourceFile: file.name
+        };
+        this.playlists.push(newPlaylist);
+        this.savePlaylists();
+        if (window.library) await window.library.reload();
+        window.toast.show(`Imported "${newPlaylist.name}" with ${newPlaylist.trackIds.length} tracks!`, 'success');
+        if (window.mainApp) window.mainApp.switchView(`playlist-${newPlaylist.id}`);
+      } else {
+        window.toast.show(`Import failed: ${res?.message || 'Invalid M3U'}`, 'error');
+      }
+    } catch (err) {
+      window.toast.show(`Import failed: ${err.message || err}`, 'error');
+    }
+  }
+
+  /**
+   * Opens file selector to choose an M3U/M3U8 file to import.
+   */
+  triggerImportM3U() {
+    let input = document.getElementById('input-hidden-import-m3u');
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'file';
+      input.id = 'input-hidden-import-m3u';
+      input.accept = '.m3u,.m3u8';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+      input.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this.importM3UFile(e.target.files[0]);
+          e.target.value = '';
+        }
+      });
+    }
+    input.click();
+  }
+
+  /**
+   * Removes tracks in library that do not belong to any playlist,
+   * and auto-prunes any files manually deleted from disk.
+   */
+  async cleanOrphanTracks() {
+    if (!window.library || !window.library.tracks) return;
+
+    let prunedCount = 0;
+    try {
+      const pruneRes = await window.api.pruneMissingTracks();
+      prunedCount = pruneRes?.pruned_count || 0;
+      if (prunedCount > 0) {
+        if (pruneRes.pruned_ids) {
+          this.removeTracksEverywhere(pruneRes.pruned_ids);
+        }
+        await window.library.reload();
+      }
+    } catch (err) {
+      console.warn("[Playlists] Prune missing check failed:", err);
+    }
+
+    const allPlaylistTrackIds = new Set(
+      this.playlists.flatMap(pl => [...(pl.trackIds || []), ...(pl.importedTrackIds || [])])
+    );
+    const orphanTrackIds = Object.keys(window.library.tracks).filter(tid => {
+      if (allPlaylistTrackIds.has(tid)) return false;
+      const track = window.library.tracks[tid];
+      if (!track) return false;
+      // Protect tracks in Safe Folder ($HOME/Music/AquaMusic) and downloaded tracks
+      const p = (track.path || '').toLowerCase();
+      if (p.includes('/music/aquamusic') || p.includes('/aquamusic') || track.is_downloaded || track.youtube_id || track.source === 'download') {
+        return false;
+      }
+      return true;
+    });
+
+    if (orphanTrackIds.length === 0) {
+      if (prunedCount > 0) {
+        window.toast.show(`Purged ${prunedCount} missing/deleted track${prunedCount === 1 ? '' : 's'}. Library is now synchronized!`, "success");
+      } else {
+        window.toast.show("No unlinked music found. Library is clean!", "info");
+      }
+      return;
+    }
+
+    const prefix = prunedCount > 0 ? `Purged ${prunedCount} deleted tracks. Also found ` : `Found `;
+    const confirmed = await window.dialog.confirm(
+      `${prefix}${orphanTrackIds.length} track${orphanTrackIds.length === 1 ? '' : 's'} not in any playlist. Remove them from All Music? (Source files on disk will NOT be deleted.)`,
+      'Clean Unlinked Tracks'
+    );
+    if (confirmed) {
+      try {
+        await window.api.removeLibraryTracks(orphanTrackIds);
+        this.removeTracksEverywhere(orphanTrackIds);
+        await window.library.reload();
+        window.toast.show(`Removed ${orphanTrackIds.length} unlinked tracks from library.`, 'success');
+      } catch (e) {
+        window.toast.show(`Failed to remove tracks: ${e.message}`, 'error');
       }
     }
   }
@@ -1007,6 +1173,7 @@ class PlaylistsManager {
       name: this.uniquePlaylistName(folderName),
       created: Date.now(),
       trackIds: matchingTrackIds,
+      importedTrackIds: matchingTrackIds,
       // Imported folders are library roots: deleting one removes these tracks
       // from every app view and playlist, while leaving the files on disk.
       isLibrarySource: true,

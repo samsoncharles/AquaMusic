@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# AquaMusic Port 80 Sharing Helper
+# Configures Apache2 Reverse Proxy so external LAN devices can access AquaMusic on Port 80
+set -e
+
+PORT="${1:-5000}"
+
+if [[ $EUID -ne 0 ]]; then
+   echo "Error: This helper must be run as root (or via sudo)." >&2
+   echo "Usage: sudo aquamusic-share-port80 [port]" >&2
+   exit 1
+fi
+
+echo "--> Configuring Apache2 reverse proxy: Port 80 -> AquaMusic (Port $PORT)..."
+
+cat <<EOF > /etc/apache2/sites-available/aquamusic.conf
+# AquaMusic Reverse Proxy for Port 80 LAN Sharing
+<VirtualHost *:80>
+    ProxyPreserveHost On
+    ProxyRequests Off
+    ProxyPass / http://127.0.0.1:${PORT}/
+    ProxyPassReverse / http://127.0.0.1:${PORT}/
+</VirtualHost>
+EOF
+
+# Enable required apache proxy modules
+a2enmod proxy proxy_http >/dev/null 2>&1 || true
+
+# Enable aquamusic site
+a2ensite aquamusic.conf >/dev/null 2>&1 || true
+
+# Reload apache2
+if systemctl is-active --quiet apache2 2>/dev/null; then
+    systemctl reload apache2 || systemctl restart apache2
+    echo "--> Apache2 reloaded successfully!"
+elif command -v service >/dev/null 2>&1; then
+    service apache2 reload || true
+    echo "--> Apache2 service reloaded."
+fi
+
+# Get LAN IP
+LAN_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+echo "=========================================================="
+echo "  AquaMusic Network Sharing (Port 80) is ACTIVE!"
+if [[ -n "$LAN_IP" ]]; then
+    echo "  External devices can now access: http://${LAN_IP}"
+else
+    echo "  External devices can now access: http://<your-ip>"
+fi
+echo "=========================================================="
+

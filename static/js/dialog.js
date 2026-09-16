@@ -59,10 +59,14 @@ class DialogManager {
       // Hide all other modals first
       document.querySelectorAll('#modal-overlay .modal-container').forEach(m => {
         m.style.display = 'none';
+        m.classList.remove('show');
       });
 
       if (this.overlay) this.overlay.classList.add('show');
-      if (this.modal) this.modal.style.display = 'block';
+      if (this.modal) {
+        this.modal.classList.add('show');
+        this.modal.style.display = 'block';
+      }
       
       if (type === 'prompt' && this.inputEl) {
         setTimeout(() => this.inputEl.focus(), 100);
@@ -72,7 +76,10 @@ class DialogManager {
 
   _hide(result) {
     if (this.overlay) this.overlay.classList.remove('show');
-    if (this.modal) this.modal.style.display = 'none';
+    if (this.modal) {
+      this.modal.classList.remove('show');
+      this.modal.style.display = 'none';
+    }
     if (this.resolvePromise) {
       this.resolvePromise(result);
       this.resolvePromise = null;

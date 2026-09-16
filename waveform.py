@@ -6,17 +6,48 @@ import hashlib
 import random
 import subprocess
 
-def generate_waveform_samples(file_path, num_samples=200):
+def _generate_synthetic_waveform(seed_key: str, num_samples: int = 200) -> list[float]:
+    """Generate a highly aesthetic, deterministic visual waveform shape from any key."""
+    path_hash = hashlib.md5(seed_key.encode('utf-8')).hexdigest()
+    seed = int(path_hash, 16) & 0xFFFFFFFF
+    random.seed(seed)
+
+    samples = []
+    for i in range(num_samples):
+        progress = i / num_samples
+        envelope = 1.0
+        # Fade envelope on edges for professional audio waveform look
+        if progress < 0.08:
+            envelope = progress / 0.08
+        elif progress > 0.85:
+            envelope = (1.0 - progress) / 0.15
+
+        # Audio-frequency harmonic overlay
+        base = 0.35 + 0.25 * math.sin(progress * 12) + 0.15 * math.sin(progress * 35) + 0.1 * math.sin(progress * 90)
+        noise = random.uniform(0.0, 0.3)
+        val = (base + noise) * envelope
+        samples.append(min(0.95, max(0.05, val)))
+
+    return samples
+
+
+def generate_waveform_samples(file_path_or_id: str, num_samples: int = 200) -> list[float]:
     """
-    Generates an array of `num_samples` normalized float amplitude values [0.0..1.0] for the given file.
-    Attempts to read WAV headers directly or decode files to raw PCM using FFmpeg.
-    If those fail, falls back to a deterministic, realistic-looking waveform based on the file path.
+    Generates an array of `num_samples` normalized float amplitude values [0.0..1.0].
+    If file exists on disk, reads WAV or decodes with FFmpeg.
+    If it's an online track or if decoding fails, generates a deterministic aesthetic waveform.
     """
-    if not os.path.exists(file_path):
-        return [0.0] * num_samples
+    if not file_path_or_id:
+        return [0.5] * num_samples
+
+    # If it's not a local file on disk, generate from ID
+    if not os.path.exists(file_path_or_id):
+        return _generate_synthetic_waveform(file_path_or_id, num_samples)
+
+    file_path = file_path_or_id
 
     try:
-        # Check if WAV file
+        # 1. Direct WAV file parsing
         if file_path.lower().endswith('.wav'):
             try:
                 with wave.open(file_path, 'rb') as w:
@@ -45,7 +76,6 @@ def generate_waveform_samples(file_path, num_samples=200):
                         while len(samples) < num_samples:
                             samples.append(0.0)
 
-                        # Normalize
                         max_val = max(samples) if samples else 0
                         if max_val > 0:
                             samples = [min(1.0, (x / max_val) * 0.9 + 0.05) for x in samples]
@@ -53,18 +83,17 @@ def generate_waveform_samples(file_path, num_samples=200):
             except Exception as e:
                 print(f"[Waveform Decoder] WAV parse exception: {e}")
 
-        # Attempt decoding with FFmpeg
+        # 2. Attempt decoding with FFmpeg
         cmd = [
             'ffmpeg', '-y', '-i', file_path,
             '-f', 's16le', '-ac', '1', '-ar', '4000', '-'
         ]
         
-        # Start subprocess with pipe output
         process = subprocess.Popen(
-            cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+            cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
         )
         try:
-            stdout, _ = process.communicate(timeout=5)
+            stdout, _ = process.communicate(timeout=4)
         except subprocess.TimeoutExpired:
             process.kill()
             stdout, _ = process.communicate()
@@ -83,11 +112,9 @@ def generate_waveform_samples(file_path, num_samples=200):
                         continue
                     count = len(block) // 2
                     shorts = struct.unpack(f"<{count}h", block)
-                    # Compute RMS for cleaner sound wave representations
                     rms = math.sqrt(sum(x*x for x in shorts) / count) / 32768.0 if count > 0 else 0.0
                     samples.append(rms)
 
-                # Normalize visual representation
                 max_val = max(samples) if samples else 0
                 if max_val > 0:
                     samples = [min(1.0, (x / max_val) * 0.9 + 0.05) for x in samples]
@@ -96,25 +123,5 @@ def generate_waveform_samples(file_path, num_samples=200):
     except Exception as e:
         print(f"[Waveform Decoder] FFmpeg processing failed: {e}")
 
-    # Fallback: Generate a highly aesthetic, deterministic visual waveform shape
-    path_hash = hashlib.md5(file_path.encode('utf-8')).hexdigest()
-    seed = int(path_hash, 16) & 0xFFFFFFFF
-    random.seed(seed)
-
-    samples = []
-    for i in range(num_samples):
-        progress = i / num_samples
-        envelope = 1.0
-        # Fade envelope on edges for professional audio waveform look
-        if progress < 0.08:
-            envelope = progress / 0.08
-        elif progress > 0.85:
-            envelope = (1.0 - progress) / 0.15
-
-        # Build an interesting audio-frequency overlay
-        base = 0.35 + 0.25 * math.sin(progress * 12) + 0.15 * math.sin(progress * 35) + 0.1 * math.sin(progress * 90)
-        noise = random.uniform(0.0, 0.3)
-        val = (base + noise) * envelope
-        samples.append(min(0.95, max(0.05, val)))
-
-    return samples
+    # Fallback: Deterministic synthetic waveform
+    return _generate_synthetic_waveform(file_path, num_samples)

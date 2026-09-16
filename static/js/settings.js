@@ -114,6 +114,12 @@ class SettingsManager {
       });
     }
 
+    // Prune Deleted Files Trigger
+    const btnPrune = document.getElementById('btn-settings-prune');
+    if (btnPrune) {
+      btnPrune.addEventListener('click', () => this.pruneMissingData());
+    }
+
     // Reset Data Trigger
     const btnReset = document.getElementById('btn-settings-clear');
     if (btnReset) {
@@ -121,22 +127,28 @@ class SettingsManager {
     }
 
     this.initSharing();
+    this.initSafeFolder();
 
     // Initial config loads
     this.loadSettings();
   }
 
   showSettings() {
+    if (!this.modal) this.modal = document.getElementById('modal-settings');
     if (!this.modal) return;
 
     // Hide all other modals in the overlay first to prevent overlap bugs
     const overlay = document.getElementById('modal-overlay');
     if (overlay) {
-      overlay.querySelectorAll('.modal-container').forEach(m => m.style.display = 'none');
+      overlay.querySelectorAll('.modal-container').forEach(m => {
+        m.style.display = 'none';
+        m.classList.remove('show');
+      });
       overlay.classList.add('show');
     }
     
-    this.modal.style.display = 'block';
+    this.modal.classList.add('show');
+    this.modal.style.display = 'flex';
 
     // Sync theme picker visual card highlight
     const themePicker = document.getElementById('setting-theme-picker');
@@ -146,13 +158,22 @@ class SettingsManager {
         card.classList.toggle('active', card.dataset.themeVal === window.themes.theme);
       });
     }
+
+    // Sync dynamic living aurora toggle switch
+    const dToggle = document.getElementById('setting-dynamic-toggle') || document.getElementById('setting-dynamic2-toggle');
+    if (dToggle && window.themes) {
+      dToggle.checked = (window.themes.theme === 'dynamic' || window.themes.theme === 'dynamic2');
+    }
   }
 
   closeSettings() {
     const overlay = document.getElementById('modal-overlay');
-    if (overlay && this.modal) {
-      overlay.classList.remove('show');
+    if (this.modal) {
+      this.modal.classList.remove('show');
       this.modal.style.display = 'none';
+    }
+    if (overlay) {
+      overlay.classList.remove('show');
     }
     
     // Stop any active status SSE feeds if settings panel closes (save threads)
@@ -234,6 +255,49 @@ class SettingsManager {
     }
   }
 
+  async initSafeFolder() {
+    const input = document.getElementById('setting-safe-folder-input');
+    const btnSave = document.getElementById('btn-save-safe-folder');
+    const status = document.getElementById('setting-safe-folder-status');
+    if (!input || !btnSave) return;
+
+    try {
+      const data = await window.api.getSafeFolder();
+      if (data && data.folder) {
+        input.value = data.folder;
+      }
+    } catch (e) {
+      console.warn("[Settings] Could not fetch safe folder:", e);
+    }
+
+    btnSave.addEventListener('click', async () => {
+      const val = input.value.trim();
+      if (!val) return;
+      btnSave.disabled = true;
+      btnSave.textContent = 'Saving...';
+      try {
+        const res = await window.api.setSafeFolder(val);
+        if (res.status === 'ok') {
+          input.value = res.folder;
+          if (status) {
+            status.textContent = `✓ Active safe download folder: ${res.folder}`;
+            status.style.color = 'var(--accent)';
+          }
+          window.toast.show("Safe download folder updated!", "success");
+        }
+      } catch (err) {
+        if (status) {
+          status.textContent = `Error: ${err.message}`;
+          status.style.color = 'var(--danger)';
+        }
+        window.toast.show("Could not set folder: " + err.message, "error");
+      } finally {
+        btnSave.disabled = false;
+        btnSave.textContent = 'Save Folder';
+      }
+    });
+  }
+
   async triggerLibraryScan(folderPath) {
     try {
       this.lastScannedFolder = folderPath;
@@ -312,6 +376,27 @@ class SettingsManager {
     if (this.evtSource) {
       this.evtSource.close();
       this.evtSource = null;
+    }
+  }
+
+  async pruneMissingData() {
+    try {
+      window.toast.show("Scanning library for missing & deleted files...", "info");
+      const res = await window.api.pruneMissingTracks();
+      const count = res?.pruned_count || 0;
+      if (res?.pruned_ids && window.playlists) {
+        window.playlists.removeTracksEverywhere(res.pruned_ids);
+      }
+      if (window.library) {
+        await window.library.reload();
+      }
+      if (count > 0) {
+        window.toast.show(`✓ Pruned ${count} deleted track${count === 1 ? '' : 's'} from library!`, "success");
+      } else {
+        window.toast.show("No missing files found. Library is synchronized!", "info");
+      }
+    } catch (err) {
+      window.toast.show("Prune failed: " + (err.message || err), "error");
     }
   }
 

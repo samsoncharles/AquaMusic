@@ -1,5 +1,57 @@
 /* WaveVault Themes definitions using CSS Custom Properties */
 
+/* ── Embedded Offline Fonts (100% locally served) ────────────────────────── */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/static/fonts/inter-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/static/fonts/inter-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/static/fonts/inter-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonts/inter-700.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/static/fonts/spacegrotesk-500.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('/static/fonts/spacegrotesk-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Space Grotesk';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/static/fonts/spacegrotesk-700.woff2') format('woff2');
+}
+
 :root {
   /* Default Theme: Dark Violet */
   --bg-base:        #0A0A0F;   /* deepest background */
@@ -39,8 +91,8 @@
   --border-radius:    12px;
   --border-radius-lg: 16px;
   --border-radius-sm: 6px;
-  --font-display:     'Space Grotesk', sans-serif;
-  --font-ui:          'Inter', sans-serif;
+  --font-display:     'Space Grotesk', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-ui:          'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 /* Midnight Blue Theme */
@@ -130,3 +182,235 @@
   --border:         rgba(0, 0, 0, 0.06);
   --border-strong:  rgba(0, 0, 0, 0.12);
 }
+
+/* Dynamic (Living Multi-Color Aurora & Frosted Glass System) */
+[data-theme="dynamic"],
+[data-theme="dynamic2"] {
+  --bg-base:        #080c14;
+  --bg-surface:     rgba(16, 22, 34, 0.75);
+  --bg-surface-2:   rgba(24, 32, 48, 0.65);
+  --bg-surface-3:   rgba(32, 42, 62, 0.72);
+  --bg-overlay:     rgba(8, 12, 20, 0.88);
+  --bg-player:      rgba(16, 22, 34, 0.82);
+  
+  --accent:         #38bdf8;
+  --accent-2:       #818cf8;
+  --accent-3:       #ec4899;
+  --accent-dim:     rgba(56, 189, 248, 0.18);
+  --accent-glow:    rgba(56, 189, 248, 0.42);
+  --accent-text:    #bae6fd;
+  
+  --d2-accent-rgb:  56, 189, 248;
+  --d2-accent2-rgb: 129, 140, 248;
+  --d2-accent3-rgb: 236, 72, 153;
+  --d2-surface-rgb: 16, 22, 34;
+  
+  --text-primary:   #ffffff;
+  --text-secondary: #94a3b8;
+  --text-muted:     #64748b;
+  
+  --border:         rgba(255, 255, 255, 0.08);
+  --border-strong:  rgba(255, 255, 255, 0.18);
+}
+
+/* Dynamic Aurora Background Canvas */
+.dynamic2-aurora-bg {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0;
+  transition: opacity 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  background: var(--bg-base);
+}
+
+[data-theme="dynamic"] .dynamic2-aurora-bg,
+[data-theme="dynamic2"] .dynamic2-aurora-bg {
+  opacity: 1;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(85px);
+  will-change: transform, opacity;
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.aurora-blob-1 {
+  width: 72vw;
+  height: 72vh;
+  top: -15vh;
+  left: -15vw;
+  background: radial-gradient(circle, rgba(var(--d2-accent-rgb, 56, 189, 248), 0.42) 0%, transparent 68%);
+  animation: auroraMove1 24s ease-in-out infinite alternate;
+}
+
+.aurora-blob-2 {
+  width: 65vw;
+  height: 65vh;
+  bottom: -15vh;
+  right: -10vw;
+  background: radial-gradient(circle, rgba(var(--d2-accent2-rgb, 129, 140, 248), 0.36) 0%, transparent 68%);
+  animation: auroraMove2 28s ease-in-out infinite alternate;
+}
+
+.aurora-blob-3 {
+  width: 48vw;
+  height: 48vh;
+  top: 30vh;
+  left: 32vw;
+  background: radial-gradient(circle, rgba(var(--d2-accent3-rgb, 236, 72, 153), 0.28) 0%, transparent 68%);
+  animation: auroraMove3 20s ease-in-out infinite alternate;
+}
+
+@keyframes auroraMove1 {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  50% { transform: translate(10vw, 8vh) scale(1.18) rotate(35deg); }
+  100% { transform: translate(-6vw, 12vh) scale(0.92) rotate(-25deg); }
+}
+
+@keyframes auroraMove2 {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  50% { transform: translate(-12vw, -10vh) scale(1.15) rotate(-45deg); }
+  100% { transform: translate(8vw, -6vh) scale(0.95) rotate(30deg); }
+}
+
+@keyframes auroraMove3 {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-8vw, 10vh) scale(1.22); }
+  100% { transform: translate(12vw, -8vh) scale(0.85); }
+}
+
+/* Audio-reactive breathing when playing */
+body.is-playing .aurora-blob-1 {
+  animation: auroraMove1 24s ease-in-out infinite alternate, auroraPulse 7s ease-in-out infinite alternate;
+}
+body.is-playing .aurora-blob-2 {
+  animation: auroraMove2 28s ease-in-out infinite alternate, auroraPulse 9s ease-in-out infinite alternate;
+}
+@keyframes auroraPulse {
+  0% { opacity: 0.82; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+  100% { opacity: 0.82; transform: scale(1); }
+}
+
+/* Dynamic Frosted Glass & Surface Enhancements */
+[data-theme="dynamic"] #app-container,
+[data-theme="dynamic2"] #app-container {
+  position: relative;
+  z-index: 1;
+}
+
+[data-theme="dynamic"] #topbar,
+[data-theme="dynamic2"] #topbar {
+  background: rgba(var(--d2-surface-rgb, 16, 22, 34), 0.68) !important;
+  backdrop-filter: blur(28px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(160%) !important;
+  border-bottom: 1px solid var(--border) !important;
+}
+
+[data-theme="dynamic"] #sidebar,
+[data-theme="dynamic2"] #sidebar {
+  background: rgba(var(--d2-surface-rgb, 16, 22, 34), 0.72) !important;
+  backdrop-filter: blur(32px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(160%) !important;
+  border-right: 1px solid var(--border) !important;
+}
+
+[data-theme="dynamic"] #player,
+[data-theme="dynamic2"] #player {
+  background: rgba(var(--d2-surface-rgb, 16, 22, 34), 0.78) !important;
+  backdrop-filter: blur(36px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(180%) !important;
+  border-top: 1px solid var(--border-strong) !important;
+  box-shadow: 0 -10px 36px -8px rgba(var(--d2-accent-rgb, 56, 189, 248), 0.22) !important;
+}
+
+[data-theme="dynamic"] #main-view-container,
+[data-theme="dynamic2"] #main-view-container,
+[data-theme="dynamic"] .main-content,
+[data-theme="dynamic2"] .main-content {
+  background: transparent !important;
+}
+
+[data-theme="dynamic"] .playlist-sticky-header,
+[data-theme="dynamic2"] .playlist-sticky-header {
+  background: rgba(var(--d2-surface-rgb, 16, 22, 34), 0.75) !important;
+  backdrop-filter: blur(24px) saturate(150%) !important;
+  border-color: var(--border-strong) !important;
+  box-shadow: 0 8px 32px rgba(var(--d2-accent-rgb, 56, 189, 248), 0.12) !important;
+}
+
+[data-theme="dynamic"] .song-table-container,
+[data-theme="dynamic2"] .song-table-container {
+  background: rgba(var(--d2-surface-rgb, 16, 22, 34), 0.55) !important;
+  backdrop-filter: blur(20px) !important;
+  border-color: var(--border) !important;
+}
+
+[data-theme="dynamic"] #btn-play-pause,
+[data-theme="dynamic2"] #btn-play-pause {
+  background: linear-gradient(135deg, var(--accent), var(--accent-2, var(--accent))) !important;
+  box-shadow: 0 4px 20px var(--accent-glow) !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+[data-theme="dynamic"] .player-art,
+[data-theme="dynamic2"] .player-art {
+  box-shadow: 0 6px 20px var(--accent-glow);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+[data-theme="dynamic"] #track-progress-fill,
+[data-theme="dynamic2"] #track-progress-fill,
+[data-theme="dynamic"] #volume-progress-fill,
+[data-theme="dynamic2"] #volume-progress-fill {
+  background: linear-gradient(90deg, var(--accent), var(--accent-2, var(--accent))) !important;
+}
+
+[data-theme="dynamic"] .song-row.active-playing,
+[data-theme="dynamic2"] .song-row.active-playing {
+  background: rgba(var(--d2-accent-rgb, 56, 189, 248), 0.14) !important;
+  border-left: 3px solid var(--accent) !important;
+  box-shadow: inset 0 0 20px rgba(var(--d2-accent-rgb, 56, 189, 248), 0.08);
+}
+
+/* Style variants: Neon and Subtle */
+[data-theme="dynamic"][data-d2-style="neon"] .aurora-blob,
+[data-theme="dynamic2"][data-d2-style="neon"] .aurora-blob {
+  opacity: 1;
+  filter: blur(55px);
+}
+[data-theme="dynamic"][data-d2-style="neon"] #player,
+[data-theme="dynamic2"][data-d2-style="neon"] #player {
+  box-shadow: 0 -16px 50px -5px var(--accent-glow), 0 0 1px 1px var(--accent) !important;
+}
+[data-theme="dynamic"][data-d2-style="subtle"] .aurora-blob,
+[data-theme="dynamic2"][data-d2-style="subtle"] .aurora-blob {
+  opacity: 0.38;
+  filter: blur(105px);
+}
+
+/* System-wide smooth color transitions for dynamic themes */
+body, 
+#sidebar, 
+#player, 
+#topbar, 
+.main-view, 
+.view-panel, 
+.card, 
+.song-row, 
+.modal-content,
+.playlist-sticky-header,
+.settings-section,
+.control-btn {
+  transition: background 0.4s ease, background-color 0.4s ease, border-color 0.4s ease, color 0.2s ease, box-shadow 0.4s ease;
+}
+
+

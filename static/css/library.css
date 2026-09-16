@@ -210,7 +210,7 @@
 
 .song-table-header {
   display: grid;
-  grid-template-columns: 48px minmax(200px, 2fr) minmax(120px, 1fr) minmax(120px, 1fr) 80px 100px 80px 100px 48px;
+  grid-template-columns: 48px minmax(200px, 2fr) minmax(120px, 1fr) minmax(120px, 1fr) 80px 100px 80px 80px;
   border-bottom: 1px solid var(--border-strong);
   padding: 8px 12px;
   font-size: 0.75rem;
@@ -261,7 +261,7 @@
 
 .song-row {
   display: grid;
-  grid-template-columns: 48px minmax(200px, 2fr) minmax(120px, 1fr) minmax(120px, 1fr) 80px 100px 80px 100px 48px;
+  grid-template-columns: 48px minmax(200px, 2fr) minmax(120px, 1fr) minmax(120px, 1fr) 80px 100px 80px 80px;
   align-items: center;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
@@ -758,10 +758,10 @@ mark {
     display: none;
   }
   .song-row {
-    grid-template-columns: 48px minmax(180px, 2fr) minmax(100px, 1fr) 80px 48px !important;
+    grid-template-columns: 48px minmax(180px, 2fr) minmax(100px, 1fr) 80px !important;
   }
   .song-table-header {
-    grid-template-columns: 48px minmax(180px, 2fr) minmax(100px, 1fr) 80px 48px !important;
+    grid-template-columns: 48px minmax(180px, 2fr) minmax(100px, 1fr) 80px !important;
   }
   /* For playlists (with 6th column: blacklist button) */
   .song-row[style*="48px"] {

@@ -425,3 +425,73 @@ h1, h2, h3, h4, .font-display {
     width: 100% !important;
   }
 }
+
+/* Active Download Red Dot Indicator */
+.download-red-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  box-shadow: 0 0 10px #ef4444, 0 0 4px #ef4444;
+  display: inline-block;
+  animation: pulseDownloadDot 1.4s infinite ease-in-out;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+@keyframes pulseDownloadDot {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.6;
+    box-shadow: 0 0 4px #ef4444;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+    box-shadow: 0 0 12px #ef4444, 0 0 6px #ef4444;
+  }
+  100% {
+    transform: scale(0.85);
+    opacity: 0.6;
+    box-shadow: 0 0 4px #ef4444;
+  }
+}
+
+/* In-progress downloading song row (faded until complete) */
+.downloading-faded-row {
+  opacity: 0.65;
+  filter: grayscale(25%);
+  transition: opacity 0.5s ease, filter 0.5s ease, background-color 0.3s ease;
+  position: relative;
+  border-left: 3px solid var(--accent) !important;
+}
+
+.downloading-faded-row.download-finished {
+  opacity: 1;
+  filter: none;
+  border-left: 3px solid #10b981 !important;
+}
+
+.download-row-progress-container {
+  grid-column: 1 / -1;
+  padding: 4px 14px 10px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: rgba(124, 106, 247, 0.05);
+}
+
+.download-row-progress-bar {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.download-row-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s ease;
+}
+

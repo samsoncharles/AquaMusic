@@ -1,35 +1,89 @@
-# AquaMusic
+# AquaMusic v1.0.1
 
-A polished local music player built with Flask and vanilla JavaScript. Browse an audio-only library, manage playlists and queue playback, edit tags, and enjoy artwork, waveforms, themes, and keyboard-friendly controls.
+A modern, high-fidelity personal music player, online YouTube music streamer, and offline audio manager built with Python, Flask, and vanilla web technologies.
 
-## Desktop and nearby-device sharing
+Featuring a lightweight **XAMPP-style Control Panel**, synchronized line-by-line immersive lyrics, 10-band equalizer, living aurora frosted-glass aesthetics, high-speed unthrottled streaming and MP3 downloads to Safe Folder, and local network sharing.
 
-The desktop app is private by default: its player server listens only on `127.0.0.1`. In **Settings → Share to nearby devices**, opt in to HTTPS sharing and copy the displayed Wi-Fi link. AquaMusic generates a self-signed certificate in its per-user data folder when paths are left blank, or you can provide your own certificate and key.
+---
 
-Build the 64-bit Debian package on an amd64 Debian/Ubuntu machine:
+## What's New in v1.0.1
 
+- **Lightweight XAMPP-Style Control Panel**:
+  - Native desktop control panel GUI (`control_panel.py`) using native Tkinter — ultra-lightweight (package size reduced by **99.9%** from 282MB down to **283KB**).
+  - Explicit **Start / Stop** toggle controls, editable port entry with validation, module status, and live LAN access links.
+  - Built-in requirement checker and automated 1-click `pip` package installer.
+  - Real-time scrolling server log viewer.
+- **YouTube Music Streaming & Safe Folder MP3 Downloader**:
+  - Unthrottled online streaming with mobile/embedded client signature bypass (`ba[ext=m4a]/ba[ext=webm]/bestaudio[abr<=160]`).
+  - High-speed parallel fragment downloading with automatic LAME VBR MP3 audio conversion and high-res cover art embedding.
+  - Real-time download progress drawer with live speed (MB/s), byte counters, ETA, and stage indicators.
+- **Synchronous Line-by-Line Lyrics Mode**:
+  - Immersive full-screen synced lyrics view with Apple Music / Spotify typography.
+  - Fixed scroll lockout: isolated user gestures (`wheel`, `touch`) so every line transitions and scrolls smoothly on beat without delaying or double-scrolling.
+  - High-precision 60fps `requestAnimationFrame` synchronization loop for microsecond-accurate timestamp tracking.
+  - Full playback transport controls directly inside the lyrics screen (play/pause, shuffle, repeat, like, volume, spectrum toggle).
+- **Network Sharing & Apache2 Port 80 Proxy Integration**:
+  - Easily share AquaMusic across your local Wi-Fi / LAN to your phone, tablet, or smart TV.
+  - Includes `aquamusic-share-port80` helper script to automatically configure Apache2 reverse proxy on Port 80.
+- **Cross-Platform Releases**:
+  - **Linux Debian / Ubuntu**: Lightweight `.deb` package (283 KB) with desktop menu integration and GNOME Shell dock icons.
+  - **Windows**: Native NSIS Setup Installer (`AquaMusic-1.0.1-Setup.exe`, 533 KB) and standalone portable ZIP (`AquaMusic-1.0.1-win64-portable.zip`, 491 KB).
+
+---
+
+## Installation & Releases
+
+### Linux (Debian / Ubuntu / Kali / Mint)
+Download the latest `.deb` package from [Releases](https://github.com/samsoncharles/AquaMusic/releases):
 ```bash
-chmod +x packaging/build-deb.sh
-./packaging/build-deb.sh
-sudo apt install ./build/aquamusic_1.0.0_amd64.deb
+sudo dpkg -i aquamusic_1.0.1_amd64.deb
+```
+Launch **AquaMusic** from your desktop app launcher or run:
+```bash
+aquamusic
 ```
 
-The package registers common audio formats with Linux, so selecting an MP3 in a file manager and choosing **Open With → AquaMusic** imports it into the local library.
+### Windows (10 / 11)
+1. Download **`AquaMusic-1.0.1-Setup.exe`** from [Releases](https://github.com/samsoncharles/AquaMusic/releases) and run the installer.
+2. Or download **`AquaMusic-1.0.1-win64-portable.zip`**, extract anywhere, and double-click **`AquaMusic.exe`**.
 
-The `.deb` embeds the Python runtime and all packages in `requirements.txt`;
-the application does not run `pip` on the user's computer. Its icon library is
-also vendored in `static/vendor`, and all themes are already local CSS. The
-target computer still needs the normal Debian/Ubuntu graphics and audio
-libraries declared by the package (these are ordinarily part of a desktop
-installation); install them from a local apt repository/media first if that
-computer has no network access.
+---
 
-## Highlights
+## Run from Source (Development Mode)
 
-- Audio-only folder scanning with batch import
-- Playlist creation, drag-to-reorder, randomized covers, and M3U export
-- Queue controls, shuffle, repeat, ratings, lyrics, tag editing, and waveform display
-- Light and dark themes with responsive desktop and mobile layouts
+```bash
+git clone https://github.com/samsoncharles/AquaMusic.git
+cd AquaMusic
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Launch Control Panel GUI
+python control_panel.py
+
+# Or run the server directly
+python app.py
+```
+Then visit `http://127.0.0.1:5000` in your web browser.
+
+---
+
+## Building Packages
+
+### Debian Package (.deb)
+```bash
+bash packaging/build-deb.sh
+```
+Builds `release/aquamusic_1.0.1_amd64.deb`.
+
+### Windows Package (.exe & .zip)
+On Linux using MinGW-w64 and NSIS, or on Windows:
+```bash
+bash packaging/build-win.sh
+```
+Builds `release/AquaMusic-1.0.1-Setup.exe` and `release/AquaMusic-1.0.1-win64-portable.zip`.
+
+---
 
 ## Screenshots
 
@@ -41,15 +95,9 @@ computer has no network access.
 | --- | --- |
 | ![Track context menu](<assets/screenshots/Screenshot From 2026-08-17 03-22-51.png>) | ![Music folder picker](<assets/screenshots/Screenshot From 2026-08-17 03-23-25.png>) |
 
-## Run locally
+---
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python app.py
-```
+## License
 
-Then open `http://127.0.0.1:5000`. This development mode is also local-only.
+MIT License. Local library data, audio cache, logs, and credentials are intentionally excluded from Git.
 
-Local library data, logs, credentials, and environment files are intentionally excluded from Git.

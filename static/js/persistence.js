@@ -28,8 +28,9 @@ window.persistence = {
       window.api.saveState(this.key, this.snapshot()).catch(error =>
         console.warn('Could not save desktop preferences to the database.', error)
       );
-    }, 250);
+    }, 1000);
   },
+
 
   async init() {
     try {

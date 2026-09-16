@@ -109,9 +109,9 @@ class TagEditor {
 
     // Retrieve fields
     const data = {
-      title: document.getElementById('tag-input-title').value.strip ? document.getElementById('tag-input-title').value.strip() : document.getElementById('tag-input-title').value,
-      artist: document.getElementById('tag-input-artist').value,
-      album: document.getElementById('tag-input-album').value,
+      title: (document.getElementById('tag-input-title').value || '').trim(),
+      artist: (document.getElementById('tag-input-artist').value || '').trim(),
+      album: (document.getElementById('tag-input-album').value || '').trim(),
       album_artist: document.getElementById('tag-input-albumartist').value,
       genre: document.getElementById('tag-input-genre').value,
       year: document.getElementById('tag-input-year').value,

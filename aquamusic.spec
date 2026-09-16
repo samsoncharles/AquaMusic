@@ -1,18 +1,33 @@
 # -*- mode: python ; coding: utf-8 -*-
+import os
 from PyInstaller.utils.hooks import collect_all
 
-datas = [('/home/samson/ctf/templates', 'templates'), ('/home/samson/ctf/static', 'static')]
+base_dir = SPECPATH
+datas = [
+    (os.path.join(base_dir, 'templates'), 'templates'),
+    (os.path.join(base_dir, 'static'), 'static')
+]
 binaries = []
-hiddenimports = []
+hiddenimports = [
+    'core',
+    'core.cookies',
+    'core.extractor',
+    'core.downloader',
+    'core.safe_folder',
+    'yt_dlp',
+    'requests'
+]
+
 tmp_ret = collect_all('PyQt6')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 tmp_ret = collect_all('PyQt6.QtWebEngineWidgets')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
-
+tmp_ret = collect_all('yt_dlp')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 a = Analysis(
-    ['/home/samson/ctf/desktop.py'],
-    pathex=[],
+    [os.path.join(base_dir, 'desktop.py')],
+    pathex=[base_dir],
     binaries=binaries,
     datas=datas,
     hiddenimports=hiddenimports,

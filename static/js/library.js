@@ -157,7 +157,20 @@ class LibraryManager {
   }
 
   applyFiltersAndSorts() {
-    const list = Object.values(this.tracks);
+    // Deduplicate tracks by id and file path
+    const uniqueMap = new Map();
+    const seenPaths = new Set();
+    Object.values(this.tracks || {}).forEach(track => {
+      if (!track || !track.id) return;
+      if (track.path) {
+        if (seenPaths.has(track.path)) return;
+        seenPaths.add(track.path);
+      }
+      if (!uniqueMap.has(track.id)) {
+        uniqueMap.set(track.id, track);
+      }
+    });
+    const list = Array.from(uniqueMap.values());
 
     // 1. Apply Search and Advanced Filters
     this.visibleTracksList = list.filter(track => {
@@ -404,7 +417,6 @@ class LibraryManager {
               <div class="sortable-col" data-col="genre">Genre <span class="sort-icon">↕</span></div>
               <div class="sortable-col" data-col="duration">Duration <span class="sort-icon">↕</span></div>
               <div class="sortable-col" data-col="bitrate">Bitrate <span class="sort-icon">↕</span></div>
-              <div></div>
             </div>
 
             <div class="virtual-scroll-viewport" id="songs-scroll-viewport" style="flex: 1;">
@@ -618,11 +630,6 @@ class LibraryManager {
       <div class="song-text-cell">${highlight(track.genre)}</div>
       <div class="song-text-cell">${track.duration_fmt || '--'}</div>
       <div class="song-text-cell">${track.bitrate ? `${track.bitrate}k` : '--'}</div>
-      <div class="song-text-cell" style="text-align: right;">
-        <button class="row-context-btn" aria-label="More options">
-          <i data-lucide="more-vertical"></i>
-        </button>
-      </div>
     `;
 
     // Bind Play triggers
@@ -640,28 +647,10 @@ class LibraryManager {
       });
     }
 
-    // Context Menu Button Trigger
-    const ctxBtn = rowElement.querySelector('.row-context-btn');
-    if (ctxBtn) {
-      ctxBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        if (window.contextMenu) {
-          const rect = ctxBtn.getBoundingClientRect();
-          const playCallback = () => {
-            if (window.playlists && window.player) {
-              window.playlists.setQueue(this.visibleTracksList, index);
-              window.player.playTrack(track.id, true);
-            }
-          };
-          window.contextMenu.showForTrack(rect.left, rect.bottom + 5, track.id, playCallback);
-        }
-      });
-    }
-
     // Single-click row plays track
     rowElement.addEventListener('click', (e) => {
-      // Don't trigger if user clicked on a button/overlay inside the row
-      if (e.target.closest('.song-play-overlay') || e.target.closest('.row-context-btn')) return;
+      // Don't trigger if user clicked on overlay/button inside the row
+      if (e.target.closest('.song-play-overlay') || e.target.closest('button')) return;
       if (window.playlists) {
         window.playlists.setQueue(this.visibleTracksList, index);
         if (window.player) {

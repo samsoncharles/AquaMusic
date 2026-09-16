@@ -2,10 +2,10 @@ Package: aquamusic
 Version: @VERSION@
 Section: sound
 Priority: optional
-Architecture: @ARCH@
+Architecture: all
 Maintainer: AquaMusic <local@aquamusic.app>
-Depends: libc6 (>= 2.31), libnss3, libasound2, libgbm1, libxkbcommon0, libegl1, libgl1
-Description: AquaMusic local desktop music player
- A private local music player with optional HTTPS LAN sharing. Python and its
- dependencies are bundled in this package; no pip or internet connection is
- needed on the target computer.
+Depends: python3 (>= 3.8), python3-tk
+Recommends: python3-pip, python3-flask, python3-mutagen, python3-pil, python3-requests, yt-dlp
+Description: AquaMusic lightweight local server & music player
+ Lightweight XAMPP-style local music server and control panel with browser player,
+ synchronized lyrics, living aurora themes, and LAN/mobile sharing.

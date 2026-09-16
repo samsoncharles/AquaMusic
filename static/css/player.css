@@ -121,9 +121,15 @@
 }
 
 .control-btn.btn-toggle-active,
-.control-btn.active {
+.control-btn.active,
+.control-btn.liked {
   color: var(--accent);
-  filter: drop-shadow(0 0 4px var(--accent-glow));
+  filter: drop-shadow(0 0 6px var(--accent-glow));
+}
+
+.control-btn.liked svg {
+  fill: var(--accent);
+  stroke: var(--accent);
 }
 
 .control-btn.btn-play-pause {
@@ -390,8 +396,8 @@
   margin-bottom: -16px; /* Offset the padding-bottom of nowplaying-content */
 }
 
-.visualizer-dock.visualizer-radial {
-  display: none;
+.visualizer-dock.visualizer-dock-hidden {
+  display: none !important;
 }
 
 .nowplaying-art {
