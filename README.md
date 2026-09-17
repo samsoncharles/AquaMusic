@@ -25,6 +25,9 @@ Featuring a lightweight **XAMPP-style Control Panel**, synchronized line-by-line
 - **Network Sharing & Apache2 Port 80 Proxy Integration**:
   - Easily share AquaMusic across your local Wi-Fi / LAN to your phone, tablet, or smart TV.
   - Includes `aquamusic-share-port80` helper script to automatically configure Apache2 reverse proxy on Port 80.
+- **Screen Keep-Awake (Display Sleep Prevention)**:
+  - Dual-engine display keep-alive system (W3C Screen Wake Lock API + continuous hardware video keep-alive anchor).
+  - Keeps the screen awake continuously whenever AquaMusic is active in the browser, preventing screen dimming, sleep, or lock screen timeout.
 - **Cross-Platform Releases**:
   - **Linux Debian / Ubuntu**: Lightweight `.deb` package (283 KB) with desktop menu integration and GNOME Shell dock icons.
   - **Windows**: Native NSIS Setup Installer (`AquaMusic-1.0.1-Setup.exe`, 533 KB) and standalone portable ZIP (`AquaMusic-1.0.1-win64-portable.zip`, 491 KB).

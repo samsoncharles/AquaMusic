@@ -727,6 +727,25 @@
           </div>
         </div>
 
+        <!-- Display & Screen Keep-Awake -->
+        <div class="settings-section">
+          <span class="settings-section-title">Display & Screen Control</span>
+
+          <div class="settings-row">
+            <div class="settings-row-text">
+              <div class="settings-row-title" style="display: flex; align-items: center; gap: 8px;">
+                <span>Keep Screen Awake</span>
+                <span class="settings-pill-val" id="setting-keep-awake-status" style="font-size: 0.68rem; padding: 2px 7px;">Active</span>
+              </div>
+              <div class="settings-row-desc">Prevents display from sleeping, dimming, or locking while AquaMusic is open</div>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="setting-keep-awake" checked>
+              <span class="slider-round"></span>
+            </label>
+          </div>
+        </div>
+
         <!-- Appearance & Themes -->
         <div class="settings-section">
           <span class="settings-section-title">Visual Customization</span>
@@ -922,6 +941,7 @@
   <script src="/static/js/player.js?v=67"></script>
   <script src="/static/js/library.js?v=67"></script>
   <script src="/static/js/views.js?v=67"></script>
+  <script src="/static/js/wakelock.js?v=68"></script>
   <script src="/static/js/settings.js?v=67"></script>
   <script src="/static/js/keyboard.js?v=67"></script>
   <script src="/static/js/dialog.js?v=67"></script>

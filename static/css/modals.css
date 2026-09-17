@@ -593,6 +593,13 @@ input:checked + .slider-round::before {
   text-align: center;
 }
 
+.settings-pill-val.pill-active {
+  color: var(--accent);
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
 /* Theme picker grid */
 .theme-picker-grid {
   display: grid;

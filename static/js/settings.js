@@ -77,6 +77,10 @@ class SettingsManager {
       }
     }, false);
 
+    this.bindCheckbox('setting-keep-awake', 'wavevault_keep_awake', (checked) => {
+      if (window.wakeLock) window.wakeLock.setEnabled(checked);
+    }, true);
+
     // Bind visual Theme swatch picker click triggers
     const themePicker = document.getElementById('setting-theme-picker');
     if (themePicker && window.themes) {

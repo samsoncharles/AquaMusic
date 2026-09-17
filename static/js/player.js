@@ -119,6 +119,7 @@ class AquaMusicPlayer {
         this.isPlaying = true;
         this.updatePlayPauseButton();
         this.saveSession(true);
+        if (window.wakeLock) window.wakeLock.requestLock();
       }
     });
 

@@ -36,6 +36,7 @@ class MainApp {
     window.contextMenu.init();
     window.tagger.init();
     if (window.sleepTimer) window.sleepTimer.init();
+    if (window.wakeLock) window.wakeLock.init();
 
     // 3. Load library database
     await window.library.load();
