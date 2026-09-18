@@ -56,6 +56,9 @@
       </div>
       
       <div class="topbar-right">
+        <button class="topbar-icon-btn" id="btn-fullscreen-toggle" title="Toggle Fullscreen Display Mode (HD Monitor / TV)" aria-label="Toggle Fullscreen">
+          <i data-lucide="maximize"></i>
+        </button>
         <button class="topbar-icon-btn" id="btn-theme-toggle" title="Cycle Theme" aria-label="Cycle Theme">
           <i data-lucide="moon"></i>
         </button>
@@ -277,10 +280,16 @@
 
       <!-- Top Navigator Bar (Static Header) -->
       <header class="lyrics-top-nav">
-        <button class="lyrics-back-btn" id="btn-lyrics-close" title="Close Lyrics (Esc or L)">
-          <i data-lucide="chevron-down"></i>
-          <span>Back to Library</span>
-        </button>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button class="lyrics-back-btn" id="btn-lyrics-close" title="Close Lyrics (Esc or L)">
+            <i data-lucide="chevron-down"></i>
+            <span>Back to Library</span>
+          </button>
+          <button class="lyrics-back-btn" id="btn-lyrics-fullscreen" title="Toggle Fullscreen Display Mode (HD Monitor / TV)">
+            <i data-lucide="maximize"></i>
+            <span>Fullscreen</span>
+          </button>
+        </div>
 
         <div class="lyrics-nav-meta">
           <div class="lyrics-brand-badge">

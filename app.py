@@ -515,6 +515,20 @@ def get_stats():
         'totalSize': total_size
     })
 
+@app.route('/api/keep_awake', methods=['GET', 'POST'])
+def keep_awake_heartbeat():
+    """Client keep-awake heartbeat: inhibits system display sleep and resets screensaver timers."""
+    if sys.platform.startswith('linux'):
+        try:
+            if os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'):
+                subprocess.run(['xset', 's', 'off'], capture_output=True, timeout=1)
+                subprocess.run(['xset', '-dpms'], capture_output=True, timeout=1)
+                subprocess.run(['xset', 's', 'noblank'], capture_output=True, timeout=1)
+                subprocess.run(['xdg-screensaver', 'reset'], capture_output=True, timeout=1)
+        except Exception:
+            pass
+    return jsonify({'status': 'active', 'timestamp': time.time()})
+
 # ── Safe Folder Management Endpoints ────────────────────────────────────────
 @app.route('/api/safe-folder', methods=['GET', 'POST'])
 def manage_safe_folder():
@@ -1405,9 +1419,22 @@ def import_m3u_playlist():
         'count': len(track_ids)
     })
 
+def disable_linux_display_sleep():
+    """Inhibit X11/DPMS display sleep on Linux host if display is attached."""
+    if sys.platform.startswith('linux'):
+        try:
+            if os.environ.get('DISPLAY') or os.environ.get('WAYLAND_DISPLAY'):
+                subprocess.run(['xset', 's', 'off'], capture_output=True, timeout=1)
+                subprocess.run(['xset', '-dpms'], capture_output=True, timeout=1)
+                subprocess.run(['xset', 's', 'noblank'], capture_output=True, timeout=1)
+                print('[Display] Linux X11/DPMS screen sleep disabled.')
+        except Exception:
+            pass
+
 def serve_local(port=0, host='127.0.0.1'):
     """Run the private local HTTP server used by the desktop application."""
     global MAIN_SERVER_PORT
+    disable_linux_display_sleep()
     server = make_server(host, int(port), app, threaded=True)
     MAIN_SERVER_PORT = server.server_port
     return server
